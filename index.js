@@ -12,7 +12,7 @@ let PACKAGE = name => new Proxy({}, {
   }  
 })
 
-let LISP = PACKAGE("LISP")
+let LISP = PACKAGE("VULGAR-LISP")
 let L = LISP
 
 let USER = PACKAGE("USER")
