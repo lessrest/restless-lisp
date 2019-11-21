@@ -1,53 +1,54 @@
 "use strict";
 
-export let SYMBOL = Symbol("SYMBOL")
-export let FUNCTION = Symbol("FUNCTION")
-export let SPECIAL = Symbol("SPECIAL")
-export let PACKAGE_NAME = Symbol("PACKAGE-NAME")
-export let PACKAGE_SYMBOLS = Symbol("PACKAGE-SYMBOLS")
+export let packages = {}
 
-export let PACKAGE = name => {
-  let it = new Proxy({}, {
-    get: function (o, k) {
-      if (typeof k == "string") {
-        if (k in o) return o[k]
-        return o[k] = { 
-          [SYMBOL]: {
-            PACKAGE: it,
-            NAME: k.toString().replace(/^Symbol\((.*)\)$/, "$1"),
-          }
-        }
-      } else if (k == PACKAGE_NAME) {
-        return name
-      } else if (k == PACKAGE_SYMBOLS) {
-        return Object.keys(o)
-      } else {
-        return undefined
-      }
-    }  
-  })
-  return it
+export function makePackage(name) { 
+  return packages[name] = {
+    type: "package",
+    name,
+    symbols: {}
+  }
 }
 
-export let LISP = PACKAGE("LISP")
-let L = LISP
+export let lisp = makePackage("lisp")
 
-function special(symbol, data = {}) { 
- symbol[SPECIAL] = data
+let metasymbol = {
+  type: "symbol",
+  name: "symbol",
+  "package": lisp,
 }
 
-special(L.IF)
-special(L.LET)
-special(L["DEFINE-FUNCTION"])
-special(L.DO)
-special(L.FUNCTION)
-special(L.LAMBDA)
-special(L.APPLY)
-special(L["SET!"])
-special(L.PRINT)
-special(L.NIL)
-special(L["+"])
-special(L["-"])
+metasymbol.type = metasymbol
+
+export function intern(package_, string) {
+  if (package_.symbols.hasOwnProperty(string))
+    return package_.symbols[string]
+  else
+    return package_.symbols[string] = {
+      type: metasymbol,
+      "package": package_,
+      name: string
+    }
+}
+
+let L = lisp
+
+function special(string) { 
+  intern(lisp, string).special = 1
+}
+
+special("if")
+special("let")
+special("define-function")
+special("do")
+special("function")
+special("lambda")
+special("apply")
+special("set!")
+special("print")
+special("nil")
+special("+")
+special("-")
 
 let SHOW = term => {
   if (typeof term == "number")
@@ -56,37 +57,46 @@ let SHOW = term => {
     return term
   else if (typeof term == "string")
     return term
-  else if (term[SYMBOL])
-    return `${term[SYMBOL].PACKAGE[PACKAGE_NAME]}:${term[SYMBOL].NAME}`
-  else if (Array.isArray(term))
-    return term.map(x => SHOW(x))
+  else if (typeof term == "object") {
+    if (term.type == "symbol")
+      return `${term.package.name}:${term.name}`
+    else if (Array.isArray(term))
+      return term.map(x => SHOW(x))
+  }
+
+  throw new Error(`how to show ${term}?`)
 }
 
 let show = term => JSON.stringify(SHOW(term))
 
-export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
+export function isSymbol(x) {
+  return typeof x == "object" && x.type == metasymbol
+}
+
+export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
   // console.log(" ".repeat(depth), show(term))
   
   function bad(x) {
     debugger
-    throw new Error(`${show(L[x])} (${show(term)})`) 
+    throw new Error(`${show(intern(L, x))} (${show(term)})`) 
   }
+
   function syntax(x = term) {
     debugger
-    throw new Error(`SYNTAX-ERROR (${show(x)})`)
+    throw new Error(`syntax-error (${show(x)})`)
   }
   
   function E(term, subscope = scope, substack = stack) {
-    return EVAL(ctx, term, subscope, substack, depth + 1)
+    return eval_(ctx, term, subscope, substack, depth + 1)
   }
 
   if (typeof term == "number")
     return term
   else if (typeof term == "string")
     return term
-  else if (term === L.NIL)
+  else if (term === L.symbols.nil)
     return term
-  else if (term[SYMBOL]) {
+  else if (isSymbol(term)) {
     let x = scope.get(term)
     if (x !== undefined) {
       return x
@@ -95,16 +105,16 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         if ((x = s.get(term)) !== undefined) return x
       }
     }
-    bad("UNBOUND-VARIABLE")
+    bad("unbound-variable")
   } else if (Array.isArray(term)) {
     if (term.length > 0) {
       switch (term[0]) {
-      case L.IF: {
+      case L.symbols["if"]: {
         if (term.length != 4) syntax()
         return E(E(term[1]) ? term[2] : term[3])
       }
         
-      case L["+"]: {
+      case L.symbols["+"]: {
         if (term.length <= 1) syntax()
         let x = 0
         for (let i = 1; i < term.length; i++)
@@ -112,7 +122,7 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         return x
       }
         
-      case L["-"]: {
+      case L.symbols["-"]: {
         if (term.length <= 2) syntax()
         let x = E(term[1])
         for (let i = 2; i < term.length; i++)
@@ -120,13 +130,15 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         return x
       }
         
-      case L["DEFINE-FUNCTION"]: {
+      case L.symbols["define-function"]: {
         if (term.length != 4) syntax()
-        if (!term[1][SYMBOL]) syntax()
+        if (!isSymbol(term[1])) syntax()
         if (!Array.isArray(term[2])) syntax()
-        if (term[2].some(x => !x[SYMBOL])) syntax()
+        if (term[2].some(x => !isSymbol(x))) syntax()
         return (
-          term[1][FUNCTION] = {
+          term[1]["function"] = {
+            type: L.symbols["function"],
+            name: term[1],
             params: term[2],
             body: term[3],
             stack: [scope, ...stack],
@@ -134,40 +146,41 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         )
       }
 
-      case L.LAMBDA: {
+      case L.symbols.lambda: {
         if (term.length != 3) syntax()
         if (!Array.isArray(term[1])) syntax()
-        if (term[1].some(x => !x[SYMBOL])) syntax()
+        if (term[1].some(x => !x.symbol)) syntax()
         return {
+          type: L.symbols["function"],
           params: term[1],
           body: term[2],
           stack: [scope, ...stack],
         }
       }
 
-      case L.FUNCTION: {
+      case L.symbols["function"]: {
         if (term.length != 2) syntax()
-        if (!term[1][SYMBOL]) syntax()
-        if (!term[1][FUNCTION]) bad("NO-FUNCTION")
-        return term[1][FUNCTION]
+        if (!isSymbol(term[1])) syntax()
+        if (!term[1]["function"]) bad("no-function")
+        return term[1]["function"]
       }
 
-      case L.LET: 
+      case L.symbols["let"]: 
         {
           if (term.length != 3) syntax()
           if (!Array.isArray(term[1])) syntax()
           let subscope = new Map
           for (let x of term[1]) {
             if (!Array.isArray(x) || x.length != 2) syntax()
-            if (!x[0][SYMBOL]) syntax()
+            if (!isSymbol(x[0])) syntax()
             let v = E(x[1])
             subscope.set(x[0], v)
           }
-          let x = EVAL(ctx, term[2], subscope, [scope, ...stack], depth + 1)
+          let x = eval_(ctx, term[2], subscope, [scope, ...stack], depth + 1)
           return x
         }
 
-      case L.APPLY: {
+      case L.symbols.apply: {
         if (term.length != 3) syntax()
         let λ = E(term[1])
         let argterms = term[2]
@@ -178,22 +191,22 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
             let arg = E(argterms[i])
             subscope.set(params[i], arg)
           }
-          let x = EVAL(ctx, λ.body, subscope, λ.stack, depth + 1)
+          let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
           return x
         } else {
-          bad("ARGS-PARAMS-MISMATCH")
+          bad("args-params-mismatch")
         }
       }
 
-      case L.PRINT:
+      case L.symbols.print:
         {
           if (term.length != 2) syntax()
           let x = E(term[1])
           ctx.print(x)
-          return L.NIL
+          return L.nil
         }
         
-      case L.DO: 
+      case L.symbols["do"]: 
         {
           let x
           for (let subterm of term.slice(1))
@@ -201,10 +214,10 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
           return x
         }
         
-      case L["SET!"]:
+      case L.symbols["set!"]:
         {
           if (term.length != 3) syntax()
-          if (!term[1][SYMBOL]) syntax()
+          if (!isSymbol(term[1])) syntax()
           let where
           if (scope.has(term[1]))
             where = scope
@@ -216,7 +229,7 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
               }
             }
             if (!where)
-              bad("NO-SUCH-VARIABLE")
+              bad("no-such-variable")
           }
           let x = E(term[2])
           where.set(term[1], x)
@@ -225,8 +238,8 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         
       }
       
-      if (term[0][SYMBOL]) {
-        let λ = term[0][FUNCTION]
+      if (isSymbol(term[0])) {
+        let λ = term[0]["function"]
         if (λ) {
           let argterms = term.slice(1)
           if (argterms.length == λ.params.length) {
@@ -236,13 +249,13 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
               let arg = E(argterms[i])
               subscope.set(λ.params[i], arg)
             }
-            let x = EVAL(ctx, λ.body, subscope, λ.stack, depth + 1)
+            let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
             return x
           } else {
-            bad("ARGS-PARAMS-MISMATCH")
+            bad("args-params-mismatch")
           }
         } else {
-          bad(`NO-DEFUN`)
+          bad(`no-defun`)
         }
       }
     }
@@ -347,35 +360,35 @@ function readSymbol(ctx, input) {
   }
 
   if (s.match(/^([a-zA-Z-]+):(.*)$/)) {
-    let packageName = RegExp.$1.toUpperCase()
-    let symbolName = RegExp.$2.toUpperCase()
+    let packageName = RegExp.$1
+    let symbolName = RegExp.$2
     if (!ctx.packages[packageName])
       throw new Error(`no package ${packageName}`)
     return ctx.packages[packageName][symbolName]
   } else if (s.match(/^([-a-zA-Z0-9\?!\+]+)$/)) {
-    let symbolName = RegExp.$1.toUpperCase()
+    let symbolName = RegExp.$1
     let where = ctx.home
     for (let p of ctx.used) {
-      if (p[PACKAGE_SYMBOLS].includes(symbolName)) {
+      if (p.symbols.hasOwnProperty(symbolName)) {
         where = p
         break
       }
     }
-    return where[symbolName]
+    return intern(where, symbolName)
   }
 
   throw new Error(`symbol error ${s}`)
 }
 
-export let USER = PACKAGE("USER")
+export let user = makePackage("user")
 
 let ctx = {
   packages: {
-    LISP,
-    USER,
+    lisp,
+    user,
   },
-  used: [USER, LISP],
-  home: USER,
+  used: [user, lisp],
+  home: user,
 }
 
 export let example = read(ctx, stream(`
@@ -395,5 +408,6 @@ export let example = read(ctx, stream(`
       (lambda ()
         (do 
           (print "Ticking.") 
-          (print (tick))))))
+          (print (tick)))))
+    (function tick))
 `))
