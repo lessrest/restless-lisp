@@ -367,15 +367,15 @@ function readSymbol(ctx, input) {
   throw new Error(`symbol error ${s}`)
 }
 
-export let U = PACKAGE("DEMO")
+export let USER = PACKAGE("USER")
 
 let ctx = {
   packages: {
     LISP,
-    DEMO: U
+    USER,
   },
-  used: [U, LISP],
-  home: U,
+  used: [USER, LISP],
+  home: USER,
 }
 
 export let example = read(ctx, stream(`

@@ -1,7 +1,8 @@
-import { SYMBOL, SPECIAL, LISP, PACKAGE, PACKAGE_NAME, EVAL, U, example } from './lisp.js'
+import { SYMBOL, SPECIAL, LISP, PACKAGE, PACKAGE_NAME, EVAL, USER, example } from './lisp.js'
 import { html, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
 let L = LISP
+let U = USER
 
 let show = (term, used = [L, U]) => {
   if (typeof term == "number")
