@@ -4,6 +4,7 @@ export let SYMBOL = Symbol("SYMBOL")
 export let FUNCTION = Symbol("FUNCTION")
 export let SPECIAL = Symbol("SPECIAL")
 export let PACKAGE_NAME = Symbol("PACKAGE-NAME")
+export let PACKAGE_SYMBOLS = Symbol("PACKAGE-SYMBOLS")
 
 export let PACKAGE = name => {
   let it = new Proxy({}, {
@@ -18,6 +19,8 @@ export let PACKAGE = name => {
         }
       } else if (k == PACKAGE_NAME) {
         return name
+      } else if (k == PACKAGE_SYMBOLS) {
+        return Object.keys(o)
       } else {
         return undefined
       }
@@ -42,6 +45,9 @@ special(L.LAMBDA)
 special(L.APPLY)
 special(L["SET!"])
 special(L.PRINT)
+special(L.NIL)
+special(L["+"])
+special(L["-"])
 
 let SHOW = term => {
   if (typeof term == "number")
@@ -244,25 +250,150 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
   syntax()
 }
   
+export function stream(string) {
+  let i = 0
+  return {
+    peek: function () {
+      if (i >= string.length)
+        throw new Error("eof")
+      return string[i]
+    },
+    next: function () {
+      if (i >= string.length)
+        throw new Error("eof")
+      return string[i++]
+    }
+  }
+}
+
+export function read(ctx, input) {
+  skipSpaces(input)
+  
+  let c = input.peek()
+
+  if (c == ')')
+    throw new Error("too many r-parens")
+
+  if (c == '(') {
+    input.next()
+    return readList(ctx, input)
+  } 
+
+  if (c == '"') {
+    input.next()
+    return readString(input)
+  }
+
+  if (c.match(/[0-9]/))
+    return readNumber(input)
+
+  if (c.match(/[-+a-zA-Z]/))
+    return readSymbol(ctx, input)
+
+  throw new Error(`unexpected character: ${c}`)
+}
+
+function skipSpaces(input) {
+  while (input.peek().match(/^\s/))
+    input.next()
+}
+
+function readList(ctx, input) {
+  let xs = []
+  for (;;) {
+    skipSpaces(input)
+    if (input.peek() == ")") {
+      input.next()
+      return xs
+    }
+
+    let x = read(ctx, input)
+    xs.push(x)
+  }
+}
+
+function readString(input) {
+  let s = ""
+  for (;;) {
+    let c = input.next()
+    if (c == '"') {
+      return s
+    }
+    s += c
+  }
+  return s
+}
+
+function readNumber(input) {
+  let s = ""
+  for (;;) {
+    let c = input.peek()
+    if (!c.match(/[0-9]/)) {
+      break
+    }
+    s += input.next()
+  }
+  return Number(s)
+}
+
+function readSymbol(ctx, input) {
+  let s = ""
+  for (;;) {
+    let c = input.peek()
+    if (!c.match(/[-a-zA-Z_+!\?0-9:]/)) {
+      break
+    }
+    s += input.next()
+  }
+
+  if (s.match(/^([a-zA-Z-]+):(.*)$/)) {
+    let packageName = RegExp.$1.toUpperCase()
+    let symbolName = RegExp.$2.toUpperCase()
+    if (!ctx.packages[packageName])
+      throw new Error(`no package ${packageName}`)
+    return ctx.packages[packageName][symbolName]
+  } else if (s.match(/^([-a-zA-Z0-9\?!\+]+)$/)) {
+    let symbolName = RegExp.$1.toUpperCase()
+    let where = ctx.home
+    for (let p of ctx.used) {
+      if (p[PACKAGE_SYMBOLS].includes(symbolName)) {
+        where = p
+        break
+      }
+    }
+    return where[symbolName]
+  }
+
+  throw new Error(`symbol error ${s}`)
+}
+
 export let U = PACKAGE("DEMO")
 
-export let example = (
-  [L.PROGN,
-   [L.DEFUN, U.DOTIMES, [U.N, U.F],
-    [L.IF, U.N,
-     [L.PROGN,
-      [L.APPLY, U.F, []],
-      [U.DOTIMES, [L["-"], U.N, 1], U.F]],
-     L.NIL]],
-   [L.LET, [[U.I, 0]],
-    [L.DEFUN, U.TICK, [],
-     [L.PROGN,
-      [L["SET!"], U.I, [L["+"], U.I, 1]],
-      U.I]]],
-   [U.DOTIMES, 3, 
-    [L.LAMBDA, [],
-     [L.PROGN,
-      [L.PRINT, "Ticking."],
-      [L.PRINT, [U.TICK]]]]]]
-)
+let ctx = {
+  packages: {
+    LISP,
+    DEMO: U
+  },
+  used: [U, LISP],
+  home: U,
+}
 
+export let example = read(ctx, stream(`
+  (progn
+    (defun repeat (n f)
+      (if n 
+        (progn 
+          (apply f ())
+          (repeat (- n 1) f))
+        nil))
+    (let ((i 0))
+      (defun tick ()
+        (progn
+          (set! i (+ i 1))
+          i)))
+    (repeat 3
+      (lambda ()
+        (progn 
+          (print "Ticking.") 
+          (print (tick))))))
+`))
