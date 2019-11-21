@@ -53,8 +53,10 @@ lisp-symbol.special {
   font-weight: bold;
 }
 
+* { box-sizing: border-box; }
+
 [data-call="LISP:PROGN"] { flex-direction: column; align-items: start; }
-[data-call="LISP:DEFUN"] > :nth-child(3) { break-after: always; }
-[data-call="LISP:LET"] > :nth-child(2) { break-after: always; }
+[data-call="LISP:DEFUN"] > :nth-child(4) { width: 100%; }
+[data-call="LISP:LET"] > :nth-child(3) { width: 100%; }
 
 td { vertical-align: top; }
