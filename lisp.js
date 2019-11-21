@@ -1,6 +1,7 @@
 "use strict";
 
 export let SYMBOL = Symbol("SYMBOL")
+export let FUNCTION = Symbol("FUNCTION")
 export let SPECIAL = Symbol("SPECIAL")
 export let PACKAGE_NAME = Symbol("PACKAGE-NAME")
 
@@ -37,6 +38,8 @@ special(L.LET)
 special(L.DEFUN)
 special(L.PROGN)
 special(L.FUNCTION)
+special(L.LAMBDA)
+special(L.APPLY)
 special(L["SET!"])
 special(L.PRINT)
 
@@ -55,8 +58,9 @@ let SHOW = term => {
 
 let show = term => JSON.stringify(SHOW(term))
 
-export let EVAL = (ctx, term, scope = new Map, stack = []) => {
-//  console.log("stack", stack)
+export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
+  // console.log(" ".repeat(depth), show(term))
+  
   function bad(x) {
     debugger
     throw new Error(`${show(L[x])} (${show(term)})`) 
@@ -67,46 +71,80 @@ export let EVAL = (ctx, term, scope = new Map, stack = []) => {
   }
   
   function E(term, subscope = scope, substack = stack) {
-    return EVAL(ctx, term, subscope, substack)
+    return EVAL(ctx, term, subscope, substack, depth + 1)
   }
 
   if (typeof term == "number")
     return term
   else if (typeof term == "string")
     return term
+  else if (term === L.NIL)
+    return term
   else if (term[SYMBOL]) {
     let x = scope.get(term)
-    if (x) return x
-    else for (let s of stack) {
-      if ((x = s.get(term)) !== undefined) return x
+    if (x !== undefined) {
+      return x
+    } else {
+      for (let s of stack) {
+        if ((x = s.get(term)) !== undefined) return x
+      }
     }
     bad("UNBOUND-VARIABLE")
   } else if (Array.isArray(term)) {
     if (term.length > 0) {
       switch (term[0]) {
-      case L.IF:
-        if (term.length != 3) syntax()
-        return E(E(term[0]) ? term[1] : term[2])
+      case L.IF: {
+        if (term.length != 4) syntax()
+        return E(E(term[1]) ? term[2] : term[3])
+      }
         
-      case L["+"]:
+      case L["+"]: {
         if (term.length <= 1) syntax()
-        let sum = 0
+        let x = 0
         for (let i = 1; i < term.length; i++)
-          sum += E(term[i])
-        return sum
+          x += E(term[i])
+        return x
+      }
         
-      case L.DEFUN:
+      case L["-"]: {
+        if (term.length <= 2) syntax()
+        let x = E(term[1])
+        for (let i = 2; i < term.length; i++)
+          x -= E(term[i])
+        return x
+      }
+        
+      case L.DEFUN: {
         if (term.length != 4) syntax()
         if (!term[1][SYMBOL]) syntax()
         if (!Array.isArray(term[2])) syntax()
         if (term[2].some(x => !x[SYMBOL])) syntax()
         return (
-          term[1][L.FUNCTION] = {
+          term[1][FUNCTION] = {
             params: term[2],
             body: term[3],
             stack: [scope, ...stack],
           }
         )
+      }
+
+      case L.LAMBDA: {
+        if (term.length != 3) syntax()
+        if (!Array.isArray(term[1])) syntax()
+        if (term[1].some(x => !x[SYMBOL])) syntax()
+        return {
+          params: term[1],
+          body: term[2],
+          stack: [scope, ...stack],
+        }
+      }
+
+      case L.FUNCTION: {
+        if (term.length != 2) syntax()
+        if (!term[1][SYMBOL]) syntax()
+        if (!term[1][FUNCTION]) bad("NO-FUNCTION")
+        return term[1][FUNCTION]
+      }
 
       case L.LET: 
         {
@@ -119,9 +157,27 @@ export let EVAL = (ctx, term, scope = new Map, stack = []) => {
             let v = E(x[1])
             subscope.set(x[0], v)
           }
-          let x = EVAL(ctx, term[2], subscope, [scope, ...stack])
+          let x = EVAL(ctx, term[2], subscope, [scope, ...stack], depth + 1)
           return x
         }
+
+      case L.APPLY: {
+        if (term.length != 3) syntax()
+        let λ = E(term[1])
+        let argterms = term[2]
+        if (argterms.length == λ.params.length) {
+          let args = []
+          let subscope = new Map
+          for (let i = 0; i < λ.params.length; i++) {
+            let arg = E(argterms[i])
+            subscope.set(params[i], arg)
+          }
+          let x = EVAL(ctx, λ.body, subscope, λ.stack, depth + 1)
+          return x
+        } else {
+          bad("ARGS-PARAMS-MISMATCH")
+        }
+      }
 
       case L.PRINT:
         {
@@ -164,7 +220,7 @@ export let EVAL = (ctx, term, scope = new Map, stack = []) => {
       }
       
       if (term[0][SYMBOL]) {
-        let λ = term[0][L.FUNCTION]
+        let λ = term[0][FUNCTION]
         if (λ) {
           let argterms = term.slice(1)
           if (argterms.length == λ.params.length) {
@@ -172,15 +228,15 @@ export let EVAL = (ctx, term, scope = new Map, stack = []) => {
             let subscope = new Map
             for (let i = 0; i < λ.params.length; i++) {
               let arg = E(argterms[i])
-              subscope.set(params[i], arg)
+              subscope.set(λ.params[i], arg)
             }
-            let x = EVAL(ctx, λ.body, subscope, λ.stack)
+            let x = EVAL(ctx, λ.body, subscope, λ.stack, depth + 1)
             return x
           } else {
             bad("ARGS-PARAMS-MISMATCH")
           }
         } else {
-          bad("NO-DEFUN")
+          bad(`NO-DEFUN`)
         }
       }
     }
@@ -192,14 +248,21 @@ export let U = PACKAGE("DEMO")
 
 export let example = (
   [L.PROGN,
+   [L.DEFUN, U.DOTIMES, [U.N, U.F],
+    [L.IF, U.N,
+     [L.PROGN,
+      [L.APPLY, U.F, []],
+      [U.DOTIMES, [L["-"], U.N, 1], U.F]],
+     L.NIL]],
    [L.LET, [[U.I, 0]],
     [L.DEFUN, U.TICK, [],
      [L.PROGN,
       [L["SET!"], U.I, [L["+"], U.I, 1]],
       U.I]]],
-   [L.PRINT, "Ticking..."],
-   [L.PRINT, [U.TICK]],
-   [L.PRINT, [U.TICK]],
-   [L.PRINT, [U.TICK]]]
+   [U.DOTIMES, 3, 
+    [L.LAMBDA, [],
+     [L.PROGN,
+      [L.PRINT, "Ticking."],
+      [L.PRINT, [U.TICK]]]]]]
 )
 
