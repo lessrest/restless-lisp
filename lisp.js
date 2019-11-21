@@ -191,14 +191,15 @@ export let EVAL = (ctx, term, scope = new Map, stack = []) => {
 export let U = PACKAGE("DEMO")
 
 export let example = (
-  [L.LET, [[U.I, 0]],
-   [L.PROGN,
+  [L.PROGN,
+   [L.LET, [[U.I, 0]],
     [L.DEFUN, U.TICK, [],
      [L.PROGN,
       [L["SET!"], U.I, [L["+"], U.I, 1]],
-      U.I]],
-    [L.PRINT, [U.TICK]],
-    [L.PRINT, [U.TICK]],
-    [L.PRINT, [U.TICK]]]]
+      U.I]]],
+   [L.PRINT, "Ticking..."],
+   [L.PRINT, [U.TICK]],
+   [L.PRINT, [U.TICK]],
+   [L.PRINT, [U.TICK]]]
 )
 

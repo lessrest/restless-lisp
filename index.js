@@ -1,21 +1,13 @@
-import { SYMBOL, SPECIAL, LISP, PACKAGE, PACKAGE_NAME, EVAL, U, example } from './elli.js'
+import { SYMBOL, SPECIAL, LISP, PACKAGE, PACKAGE_NAME, EVAL, U, example } from './lisp.js'
 import { html, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
 let L = LISP
-// let U = PACKAGE("USER")
-
-// let example = (
-//   [L.PROGN,
-//    [L.DEFUN, U.FOO, [U.X, U.Y],
-//     [L["+"], U.X, U.Y, 1]],
-//    [U.FOO, 2, 2]]
-// )
 
 let show = (term, used = [L, U]) => {
   if (typeof term == "number")
-    return html`<elli-number>${term}</elli-number>`
+    return html`<lisp-number>${term}</lisp-number>`
   else if (typeof term == "string")
-    return html`<elli-string>${term}</elli-string>`
+    return html`<lisp-string>${term}</lisp-string>`
   else if (term[SYMBOL]) {
     let attrs = term[SPECIAL] ? { "class": "special" } : {}
     let name
@@ -23,7 +15,7 @@ let show = (term, used = [L, U]) => {
       name = term[SYMBOL].NAME
     else
       name = `${term[SYMBOL].PACKAGE[PACKAGE_NAME]}:${term[SYMBOL].NAME}`
-    return html`<elli-symbol ...${attrs}>${name}</elli-symbol>`
+    return html`<lisp-symbol ...${attrs}>${name}</lisp-symbol>`
   } else if (Array.isArray(term)) {
     if (term.length) {
       let attrs
@@ -32,9 +24,9 @@ let show = (term, used = [L, U]) => {
         let name = `${x.PACKAGE[PACKAGE_NAME]}:${x.NAME}`
         attrs = { "data-call": name }
       }
-      return html`<elli-list ...${attrs}>${term.map(x => show(x))}</elli-list>`
+      return html`<lisp-list ...${attrs}>${term.map(x => show(x))}</lisp-list>`
     } else 
-      return html`<elli-list class=empty></elli-list>`
+      return html`<lisp-list class=empty></lisp-list>`
   } else
     throw new Error(`unknown thing: ${term}`)
 }
@@ -47,16 +39,17 @@ onload = () => {
     print: x => output.push(x)
   }
   let value = EVAL(ctx, example)
-  console.log(output)
   render(
     html`
      <div>
-       ${expr}
        <div>
-         Output: ${show(output)}
+         ${expr}
        </div>
        <div>
-         Result: ${show(value)}
+         Output was ${show(output)}.
+       </div>
+       <div>
+         Result was ${show(value)}.
        </div>
      </div>`, 
     document.body)
