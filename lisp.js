@@ -38,8 +38,8 @@ function special(symbol, data = {}) {
 
 special(L.IF)
 special(L.LET)
-special(L.DEFUN)
-special(L.PROGN)
+special(L["DEFINE-FUNCTION"])
+special(L.DO)
 special(L.FUNCTION)
 special(L.LAMBDA)
 special(L.APPLY)
@@ -120,7 +120,7 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
         return x
       }
         
-      case L.DEFUN: {
+      case L["DEFINE-FUNCTION"]: {
         if (term.length != 4) syntax()
         if (!term[1][SYMBOL]) syntax()
         if (!Array.isArray(term[2])) syntax()
@@ -193,7 +193,7 @@ export let EVAL = (ctx, term, scope = new Map, stack = [], depth = 0) => {
           return L.NIL
         }
         
-      case L.PROGN: 
+      case L.DO: 
         {
           let x
           for (let subterm of term.slice(1))
@@ -379,21 +379,21 @@ let ctx = {
 }
 
 export let example = read(ctx, stream(`
-  (progn
-    (defun repeat (n f)
+  (do
+    (define-function repeat (n f)
       (if n 
-        (progn 
+        (do 
           (apply f ())
           (repeat (- n 1) f))
         nil))
-    (let ((i 0))
-      (defun tick ()
-        (progn
-          (set! i (+ i 1))
-          i)))
+    (let ((counter 0))
+      (define-function tick ()
+        (do
+          (set! counter (+ counter 1))
+          counter)))
     (repeat 3
       (lambda ()
-        (progn 
+        (do 
           (print "Ticking.") 
           (print (tick))))))
 `))
