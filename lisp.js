@@ -2,9 +2,11 @@
 
 export let packages = {}
 
+let packageType
+
 export function makePackage(name) { 
   return packages[name] = {
-    type: "package",
+    type: packageType,
     name,
     symbols: {}
   }
@@ -12,26 +14,31 @@ export function makePackage(name) {
 
 export let lisp = makePackage("lisp")
 
-let metasymbol = {
-  type: "symbol",
-  name: "symbol",
+let symbolType = { type: null, name: "symbol", "package": lisp }
+symbolType.type = symbolType
+
+packageType = {
+  type: symbolType,
   "package": lisp,
+  name: "package",
 }
 
-metasymbol.type = metasymbol
+lisp.type = packageType
 
 export function intern(package_, string) {
   if (package_.symbols.hasOwnProperty(string))
     return package_.symbols[string]
   else
     return package_.symbols[string] = {
-      type: metasymbol,
+      type: symbolType,
       "package": package_,
       name: string
     }
 }
 
 let L = lisp
+
+makePackage("keyword")
 
 function special(string) { 
   intern(lisp, string).special = 1
@@ -47,8 +54,30 @@ special("apply")
 special("set!")
 special("print")
 special("nil")
-special("+")
-special("-")
+
+function builtin(string, params, f) {
+  intern(lisp, string)["function"] = {
+    type: lisp.symbols["function"],
+    name: lisp.symbols[string],
+    params,
+    js: f,
+  }
+}
+
+builtin("+", intern(lisp, "args"), scope => {
+  let result = 0
+  for (let x of scope.get(lisp.symbols.args)) result += x
+  return result
+})
+
+builtin("-", intern(lisp, "args"), scope => {
+  let args = scope.get(lisp.symbols.args)
+  if (args.length == 0)
+    throw new Error(`- needs one argument`)
+  let result = args[0]
+  for (let x of args.slice(1)) result -= x
+  return result
+})
 
 let SHOW = term => {
   if (typeof term == "number")
@@ -58,10 +87,12 @@ let SHOW = term => {
   else if (typeof term == "string")
     return term
   else if (typeof term == "object") {
-    if (term.type == "symbol")
+    if (term.type == symbolType)
       return `${term.package.name}:${term.name}`
     else if (Array.isArray(term))
       return term.map(x => SHOW(x))
+    else if (term.type)
+      return `<${term.type.name}>`
   }
 
   throw new Error(`how to show ${term}?`)
@@ -70,7 +101,7 @@ let SHOW = term => {
 let show = term => JSON.stringify(SHOW(term))
 
 export function isSymbol(x) {
-  return typeof x == "object" && x.type == metasymbol
+  return typeof x == "object" && x.type == symbolType
 }
 
 export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
@@ -90,6 +121,33 @@ export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
     return eval_(ctx, term, subscope, substack, depth + 1)
   }
 
+  function apply(λ, argterms) {
+    let subscope = new Map
+    if (isSymbol(λ.params)) {
+      let args = []
+      for (let i = 0; i < argterms.length; i++) {
+        let arg = E(argterms[i])
+        args.push(arg)
+      }
+      subscope.set(λ.params, args)
+    } else if (argterms.length == λ.params.length) {
+      for (let i = 0; i < λ.params.length; i++) {
+        let arg = E(argterms[i])
+        subscope.set(λ.params[i], arg)
+      }
+    } else {
+      bad("args-params-mismatch")
+    }
+
+    if (λ.body) {
+      let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
+      return x
+    } else if (λ.js) {
+      let x = λ.js.call(null, subscope)
+      return x
+    }
+  }
+  
   if (typeof term == "number")
     return term
   else if (typeof term == "string")
@@ -114,13 +172,13 @@ export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
         return E(E(term[1]) ? term[2] : term[3])
       }
         
-      case L.symbols["+"]: {
-        if (term.length <= 1) syntax()
-        let x = 0
-        for (let i = 1; i < term.length; i++)
-          x += E(term[i])
-        return x
-      }
+      // case L.symbols["+"]: {
+      //   if (term.length <= 1) syntax()
+      //   let x = 0
+      //   for (let i = 1; i < term.length; i++)
+      //     x += E(term[i])
+      //   return x
+      // }
         
       case L.symbols["-"]: {
         if (term.length <= 2) syntax()
@@ -184,18 +242,7 @@ export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
         if (term.length != 3) syntax()
         let λ = E(term[1])
         let argterms = term[2]
-        if (argterms.length == λ.params.length) {
-          let args = []
-          let subscope = new Map
-          for (let i = 0; i < λ.params.length; i++) {
-            let arg = E(argterms[i])
-            subscope.set(params[i], arg)
-          }
-          let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
-          return x
-        } else {
-          bad("args-params-mismatch")
-        }
+        return apply(λ, argterms)
       }
 
       case L.symbols.print:
@@ -242,18 +289,7 @@ export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
         let λ = term[0]["function"]
         if (λ) {
           let argterms = term.slice(1)
-          if (argterms.length == λ.params.length) {
-            let args = []
-            let subscope = new Map
-            for (let i = 0; i < λ.params.length; i++) {
-              let arg = E(argterms[i])
-              subscope.set(λ.params[i], arg)
-            }
-            let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
-            return x
-          } else {
-            bad("args-params-mismatch")
-          }
+          return apply(λ, argterms)
         } else {
           bad(`no-defun`)
         }

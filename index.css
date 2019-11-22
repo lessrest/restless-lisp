@@ -1,5 +1,5 @@
 html {
-  font: 16px/22px helvetica;
+  font: 16px/22px "iosevka aile";
 }
 
 body {
@@ -12,11 +12,13 @@ body {
 table:hover,
 lisp-list:hover,
 lisp-symbol:hover, 
-lisp-string:hover, 
+lisp-string:hover,
 lisp-number:hover {
   background: rgba(0, 0, 255, 0.1);
   cursor: pointer;
 }
+
+lisp-native { font-style: italic; }
 
 lisp-list, table {
   min-height: 1.3em;
@@ -42,9 +44,7 @@ table {
 }
 
 td:first-child {
-  /* text-align: right; */
   padding-right: 1em;
-  font-style: italic;
 }
 
 lisp-symbol { 

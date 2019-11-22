@@ -1,12 +1,30 @@
-import { packages, isSymbol, makePackage, eval_, example } from './lisp.js'
-import { Component, html, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
+import { 
+  packages, 
+  isSymbol, 
+  makePackage, 
+  eval_, 
+  example 
+} from './lisp.js'
+
+import htm 
+  from 'https://unpkg.com/htm?module'
+import { 
+  Component, render, createContext, h 
+} from 'https://cdn.jsdelivr.net/npm/preact@10.0.5/dist/preact.module.js'
+
+let html = htm.bind(h)
 
 window.packages = packages
 
+let Context = createContext("lisp")
+
 class Term extends Component {
+  expand = () => {
+    this.setState({ expanded: true })
+  }
+
   render(props, state) {
     let term = props.term
-    let expand = () => this.setState({ expanded: !state.expanded })
 
     let renderFields = () => {
       let rows = []
@@ -22,33 +40,42 @@ class Term extends Component {
     }
 
     if (typeof term == "number")
-      return html`<lisp-number>${term}</lisp-number>`
+      return h("lisp-number", {}, term)
     else if (typeof term == "string")
-      return html`<lisp-string>${term}</lisp-string>`
+      return h("lisp-string", {}, term)
+    else if (typeof term == "function")
+      return h("lisp-native", {}, "JavaScript function")
     else if (term instanceof Map) {
       let rows = []
       for (let [k, v] of term) {
-        rows.push(html`
-        <tr>
-          <td><${Term} term=${k}/></td>
-          <td><${Term} term=${v}/></td>
-        </tr>
-       `)
+        rows.push(h("tr", {}, [
+          h("td", {}, h(Term, { term: k })),
+          h("td", {}, h(Term, { term: v })),
+        ]))
       }
       return html`<lisp-env><table>${rows}</table></lisp-env>`
     }
     else if (isSymbol(term)) {
-      console.log(term)
-      let attrs = term.special ? { "class": "special" } : {}
-      let name = `${term.package.name}:${term.name}`
-      if (state.expanded) {
-        return html`
-        <lisp-symbol ...${attrs}>${renderFields()}</lisp-symbol>
-      `
-      } else
-        return html`
-        <lisp-symbol ...${attrs} onclick=${expand}>${name}</lisp-symbol>
-        `
+      return h(
+        Context.Consumer, {}, 
+        context => {
+          let attrs = { onclick: this.expand }
+          if (term.special) attrs["class"] = "special"
+          
+          let name
+          if (context.used.includes(term.package))
+            name = term.name
+          else
+            name = `${term.package.name}:${term.name}`
+
+          if (state.expanded) console.log("yep")
+
+          return h(
+            "lisp-symbol", attrs, 
+            state.expanded ? renderFields() : name
+          )
+        }
+      )
     } else if (Array.isArray(term)) {
       if (term.length) {
         let attrs
@@ -70,7 +97,7 @@ class Term extends Component {
        `
       } else {
         return html`
-        <lisp-object onclick=${expand}><i>object</i></lisp-object>
+        <lisp-object onclick=${this.expand}><i>object</i></lisp-object>
        `
       } 
     } else if (typeof term == "object") {
@@ -80,7 +107,7 @@ class Term extends Component {
        `
       } else {
         return html`
-        <lisp-object onclick=${expand}><i>fields</i></lisp-object>
+        <lisp-object onclick=${this.expand}><i>fields</i></lisp-object>
        `
       } 
     } else
@@ -88,71 +115,34 @@ class Term extends Component {
   }
 }
 
-let show = (term, opts = {}) => {
-  let {
-    used = [packages.lisp, packages.user], 
-    verbose = false 
-  } = opts
-
-  if (typeof term == "number")
-    return html`<lisp-number>${term}</lisp-number>`
-  else if (typeof term == "string")
-    return html`<lisp-string>${term}</lisp-string>`
-  else if (isSymbol(term)) {
-    let attrs = term.special ? { "class": "special" } : {}
-    let name
-    if (!verbose && used.includes(term["package"]))
-      name = term.name
-    else
-      name = `${term.package.name}:${term.name}`
-    return html`<lisp-symbol ...${attrs}>${name}</lisp-symbol>`
-  } else if (Array.isArray(term)) {
-    if (term.length) {
-      let attrs
-      if (isSymbol(term[0])) {
-        let name = `${term[0]["package"].name}:${term[0].name}`
-        attrs = { "data-call": name }
-      }
-      return html`
-       <lisp-list ...${attrs}>
-         ${term.map(x => show(x, opts))}
-       </lisp-list>
-     `
-    } else 
-      return html`<lisp-list class=empty></lisp-list>`
-  } else if (typeof term == "object" && term.type == packages.lisp.symbols["function"]) {
-    return html`
-     <lisp-function>
-       <table>
-         <tr><td>type</td><td>${show(term.type, opts)}</td></tr>
-         <tr><td>name</td><td>${term.name ? show(term.name, opts) : "—"}</td></tr>
-       </table>
-     </lisp-function>
-   `
-  } else
-    throw new Error(`unknown thing: ${term}`)
-}
-
 onload = () => {
-  let expr = html`<${Term} term=${example}/>`
-  render(expr, document.body)
   let output = []
   let ctx = {
+    used: [packages.user, packages.lisp],
     print: x => output.push(x)
   }
+
+  let expr = html`
+    <${Context.Provider} value=${ctx}>
+      <${Term} term=${example}/>
+    </>`
+  render(expr, document.body)
+
   let value = eval_(ctx, example)
   render(
     html`
-     <div>
+     <${Context.Provider} value=${ctx}>
        <div>
-         ${expr}
+         <div>
+           ${expr}
+         </div>
+         <div>
+           Output was <${Term} term=${output}/>.
+         </div>
+         <div>
+           Result was <${Term} term=${value}/>.
+         </div>
        </div>
-       <div>
-         Output was <${Term} term=${output}/>.
-       </div>
-       <div>
-         Result was <${Term} term=${value}/>.
-       </div>
-     </div>`, 
+     </>`, 
     document.body)
 }
