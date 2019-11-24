@@ -83,3 +83,5 @@ lisp-symbol.special {
 td { vertical-align: top; }
 
 lisp-list:not(:last-child) { margin-right: .5rem; }
+
+[data-point="yes"] { background: rgba(0, 255, 0, 0.1); }

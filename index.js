@@ -28,6 +28,8 @@ class Term extends Component {
 
   render(props, state) {
     let term = props.term
+    let point = props.point
+    let pointy = point === term ? { "data-point": "yes" } : {}
 
     let renderFields = () => {
       let rows = []
@@ -35,7 +37,7 @@ class Term extends Component {
         rows.push(html`
         <tr>
           <td>${k}</td>
-          <td><${Term} term=${v}/></td>
+          <td><${Term} term=${v} point=${point}/></td>
         </tr>
        `)
       }
@@ -43,19 +45,19 @@ class Term extends Component {
     }
 
     if (term === null)
-      return h("lisp-null", {}, h("b", {}, "null"))
+      return h("lisp-null", { ...pointy }, h("b", {}, "null"))
     if (typeof term == "number")
-      return h("lisp-number", {}, term)
+      return h("lisp-number", { ...pointy }, term)
     else if (typeof term == "string")
-      return h("lisp-string", {}, term)
+      return h("lisp-string", { ...pointy }, term)
     else if (typeof term == "function")
-      return h("lisp-native", {}, "JavaScript function")
+      return h("lisp-native", { ...pointy }, "JavaScript function")
     else if (term instanceof Map) {
       let rows = []
       for (let [k, v] of term) {
         rows.push(h("tr", {}, [
-          h("td", {}, h(Term, { term: k })),
-          h("td", {}, h(Term, { term: v })),
+          h("td", {}, h(Term, { term: k, point })),
+          h("td", {}, h(Term, { term: v, point })),
         ]))
       }
       return html`<lisp-env><table>${rows}</table></lisp-env>`
@@ -76,7 +78,7 @@ class Term extends Component {
           if (state.expanded) console.log("yep")
 
           return h(
-            "lisp-symbol", attrs, 
+            "lisp-symbol", { ...pointy, attrs }, 
             state.expanded ? renderFields() : name
           )
         }
@@ -89,35 +91,35 @@ class Term extends Component {
           attrs = { "data-call": name }
         }
         return html`
-         <lisp-list ...${attrs}>
-           ${term.map(x => html`<${Term} term=${x}/>`)}
+         <lisp-list ...${pointy} ...${attrs}>
+           ${term.map(x => html`<${Term} term=${x} point=${point}/>`)}
          </lisp-list>
        `
       } else 
-        return html`<lisp-list class=empty></lisp-list>`
+        return html`<lisp-list class=empty ...${pointy}></lisp-list>`
     } else if (typeof term == "object" && term.type) {
       if (state.expanded) {
         return html`
-         <lisp-object>${renderFields()}</lisp-object>
+         <lisp-object ...${pointy}>${renderFields()}</lisp-object>
        `
       } else {
         return html`
-        <lisp-object onclick=${this.expand}><i>object</i></lisp-object>
+        <lisp-object onclick=${this.expand} ...${pointy}><i>object</i></lisp-object>
        `
       } 
     } else if (typeof term == "object") {
       if (state.expanded) {
         return html`
-         <lisp-object>${renderFields()}</lisp-object>
+         <lisp-object ...${pointy}>${renderFields()}</lisp-object>
        `
       } else {
         return html`
-          <lisp-object onclick=${this.expand}><i>object</i></lisp-object>
+          <lisp-object ...${pointy} onclick=${this.expand}><i>object</i></lisp-object>
          `
       } 
     } else if (term === undefined) {
         return html`
-          <lisp-undefined><b>undefined</b></lisp-undefined>
+          <lisp-undefined ...${pointy}><b>undefined</b></lisp-undefined>
          `
     } else
       throw new Error(`unknown thing: ${term}`)
@@ -254,7 +256,7 @@ class Debugger extends Component {
         <button onclick=${this.step}>Step</button>
         <table>
           <tr>
-            <td>program</td><td>${h(Term, { term: state.program })}</td>
+            <td>program</td><td>${h(Term, { term: state.program, point: state.machine.term })}</td>
           </tr>
           <tr>
             <td>output</td><td>${h(Term, { term: state.output })}</td>
@@ -289,7 +291,8 @@ function baz() {
         (prompt 0
           (lambda ()
             (do (print (control 0 "escaped"))
-                (print "returned")))
+                (print "returned")
+                "done A"))
           (lambda (v k)
             (do (print "controlled")
                 (print v)
