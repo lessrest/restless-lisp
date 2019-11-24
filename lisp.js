@@ -54,6 +54,9 @@ special("apply")
 special("set!")
 special("print")
 special("nil")
+special("prompt")
+special("control")
+special("resume")
 
 function builtin(string, params, f) {
   intern(lisp, string)["function"] = {
@@ -101,7 +104,256 @@ let SHOW = term => {
 let show = term => JSON.stringify(SHOW(term))
 
 export function isSymbol(x) {
-  return typeof x == "object" && x.type == symbolType
+  return x !== null && typeof x == "object" && x.type == symbolType
+}
+
+// Here is a small-step evaluation function with some kind of
+// "defunctionalized continuations", or simple data structures that
+// specify how to proceed with the result of a computation.
+//
+// We call them plans.  A plan is basically an object that describes
+// a continuation.
+//
+// Keeping in mind that we want each step of the evaluation to be
+// fully inspectable, what should the step function do?
+//
+// It should take an input state and produce an output state.
+// 
+export function keval({ ctx, term, plan, scope, scopes }) {
+  console.log("keval", term)
+  function kontinue(p, v) {
+    console.log("kontinue", p.type)
+    if (p === null) 
+      return { ctx, scope, scopes, value: v, plan: null }
+
+    scope = p.scope
+    scopes = p.scopes
+    
+    if (p.type == "do") {
+      if (p.terms.length != 0) {
+        return {
+          ctx, 
+          term: p.terms[0],
+          plan: {
+            type: "do", 
+            scope, scopes,
+            terms: p.terms.slice(1),
+            plan: p.plan,
+          },
+          scope, scopes
+        }
+      } else {
+        return kontinue(p.plan, v)
+      }
+    } else if (p.type == "done") {
+      return {
+        ctx, scope, scopes,
+        value: v,
+        plan: null,
+      }
+    } else if (p.type == "print") {
+      ctx.print(v)
+      return kontinue(p.plan, L.symbols.nil)
+    } else if (p.type == "prompt-1") {
+      return {
+        ctx, scope, scopes,
+        term: p.term,
+        plan: {
+          type: "prompt-2",
+          scope, scopes,
+          tag: p.tag,
+          main: v,
+          plan: p.plan,
+        }
+      }
+    } else if (p.type == "prompt-2") {
+      return {
+        ctx,
+        scope: new Map,
+        scopes: p.main.scopes,
+        term: p.main.body,
+        plan: {
+          type: "prompt-marker",
+          scope, scopes,
+          tag: p.tag,
+          plan: p.plan,
+          handler: v,
+        },
+      }
+    } else if (p.type == "control") {
+      /*
+
+        So, we've been asked to perform a control operation like
+
+          (control l v) 
+
+        and we've evaluated t and v already.
+
+        Somewhere above us in the current continuation—in the
+        transitive closure of the plan, the plan's plan, and so
+        on—there should be a prompt labelled l.
+
+        We first need to capture our current continuation as delimited
+        by that prompt.  Then we need to switch to the prompt's
+        continuation, with the current term and scope set to apply the
+        prompt's handler to v and the captured continuation.
+
+        We must answer two questions to specify exactly what this
+        means, namely whether the captured continuation includes the
+        prompt and whether the continuation switched to includes the
+        prompt.
+
+        These two questions are highlighted in "A Monadic Framework
+        for Delimited Continuations" (2007) by Dybvig, Peyton Jones,
+        and Sabry, and the four different answers are written as
+
+                          -F-   -F+   +F-    +F+
+
+        where the first -/+ means "prompt included in the continuation
+        switched to" and the second -/+ means "prompt included in the
+        captured continuation."
+
+        We implement +F+.
+        
+       */
+
+      function copy(pp, tag) {
+        if (pp.type === "prompt-marker" && pp.tag === tag) {
+          return [{ ...pp, plan: { type: "done" }}, pp]
+        } else if (pp.type === "done") {
+          throw new Error(`no prompt ${tag}`)
+        } else {
+          let [subcopy, prompt] = copy(pp.plan, tag)
+          return [{ ...pp, plan: subcopy }, prompt]
+        }
+      }
+      
+      let [capture, prompt] = copy(p.plan, p.tag)
+      console.log("prompt", prompt)
+      return {
+        ctx,
+        term: prompt.handler.body,
+        scopes: prompt.handler.scopes,
+        scope: new Map([
+          [prompt.handler.params[0], v],
+          [prompt.handler.params[1], {
+            type: "continuation", 
+            plan: capture,
+          }]
+        ]),
+        plan: prompt.plan,
+      }
+    } else if (p.type == "resume-1") {
+      return {
+        ctx, scope, scopes,
+        term: p.term,
+        plan: {
+          type: "resume-2",
+          scope, scopes, 
+          continuation: v,
+          plan: p.plan,
+        }
+      }
+    } else if (p.type == "resume-2") {
+      let scope0 = scope
+      let scopes0 = scopes
+      scope = p.continuation.scope
+      scopes = p.continuation.scopes
+
+      function rebase(pp, x) {
+        if (pp.type === "done") {
+          return x
+        } else {
+          return { ...pp, plan: rebase(pp.plan, x) }
+        }
+      }
+
+      return kontinue(rebase(p.continuation.plan, p.plan), v)
+    } else if (p.type === "prompt-marker") {
+      return kontinue(p.plan, v)
+    }
+
+    console.error("continue", p, v)
+    throw new Error("can't continue")
+  }
+
+  if (["number", "string"].includes(typeof term)) {
+    return kontinue(plan, term)
+  } else if (isSymbol(term)) {
+    let x = scope.get(term)
+    if (x !== undefined) {
+      return kontinue(plan, x)
+    } else {
+      for (let s of scopes) {
+        if ((x = s.get(term)) !== undefined) 
+          return kontinue(plan, x)
+      }
+    }
+    console.error({ term, scope, scopes })
+    throw new Error("unbound-variable")
+  } else if (Array.isArray(term)) {
+    if (isSymbol(term[0])) {
+      if (term[0] === L.symbols["do"]) {
+        let next = {
+          type: "do",
+          scope, scopes, 
+          terms: term.slice(2),
+          plan,
+        }
+        return { ctx, term: term[1], plan: next, scope, scopes }
+      } else if (term[0] === L.symbols["print"]) {
+        let next = {
+          type: "print",
+          scope, scopes, 
+          plan
+        }
+        return { ctx, term: term[1], plan: next, scope, scopes }
+      } else if (term[0] === L.symbols["lambda"]) {
+        return kontinue(plan, {
+          type: L.symbols["function"],
+          params: term[1],
+          body: term[2],
+          scopes: [scope, ...scopes],
+        })
+      } else if (term[0] === L.symbols["prompt"]) {
+        return {
+          ctx, scope, scopes,
+          term: term[2],
+          plan: {
+            type: "prompt-1",
+            scope, scopes, 
+            tag: term[1],
+            term: term[3],
+            plan
+          }
+        }
+      } else if (term[0] === L.symbols["control"]) {
+        return {
+          ctx, scope, scopes,
+          term: term[2],
+          plan: {
+            type: "control",
+            scope, scopes, 
+            tag: term[1],
+            plan
+          }
+        }
+      } else if (term[0] === L.symbols["resume"]) {
+        return {
+          ctx, scope, scopes,
+          term: term[1],
+          plan: {
+            type: "resume-1",
+            scope, scopes, 
+            term: term[2],
+            plan
+          }
+        }
+      }
+    }
+  }
+
+  console.error("unknown term", term)
 }
 
 export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
@@ -418,7 +670,7 @@ function readSymbol(ctx, input) {
 
 export let user = makePackage("user")
 
-let ctx = {
+export let ctx = {
   packages: {
     lisp,
     user,
