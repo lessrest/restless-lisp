@@ -22,8 +22,15 @@ window.packages = packages
 let Context = createContext("lisp")
 
 class Term extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      expanded: props.expanded
+    }
+  }
+  
   expand = () => {
-    this.setState({ expanded: true })
+    this.setState({ expanded: !this.state.expanded })
   }
 
   render(props, state) {
@@ -265,7 +272,10 @@ class Debugger extends Component {
             <td>term</td><td>${h(Term, { term: state.machine.term })}</td>
           </tr>
           <tr>
-            <td>plan</td><td>${h(Term, { term: state.machine.plan })}</td>
+            <td>value</td><td>${h(Term, { term: state.machine.value, expanded: true })}</td>
+          </tr>
+          <tr>
+            <td>plan</td><td>${h(Term, { term: state.machine.plan, expanded: true })}</td>
           </tr>
           <tr>
             <td>scope</td><td>${h(Term, { term: state.machine.scope })}</td>

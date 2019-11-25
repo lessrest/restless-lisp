@@ -119,68 +119,85 @@ export function isSymbol(x) {
 //
 // It should take an input state and produce an output state.
 // 
-export function keval({ ctx, term, plan, scope, scopes }) {
-  console.log("keval", term)
-  function kontinue(p, v) {
-    console.log("kontinue", p.type)
-    if (p === null) 
+export function keval({ ctx, term, value, plan, scope, scopes }) {
+  console.log("keval", term, value)
+  if (value !== undefined) {
+    console.log("kontinue", plan.type)
+    if (plan === null) 
       return { ctx, scope, scopes, value: v, plan: null }
 
-    scope = p.scope
-    scopes = p.scopes
-    
-    if (p.type == "do") {
-      if (p.terms.length != 0) {
+    if (plan.type == "do") {
+      if (plan.terms.length != 0) {
         return {
           ctx, 
-          term: p.terms[0],
+          scope: plan.scope, 
+          scopes: plan.scopes,
+          term: plan.terms[0],
           plan: {
             type: "do", 
-            scope, scopes,
-            terms: p.terms.slice(1),
-            plan: p.plan,
+            scope: plan.scope, 
+            scopes: plan.scopes,
+            terms: plan.terms.slice(1),
+            plan: plan.plan,
           },
-          scope, scopes
         }
       } else {
-        return kontinue(p.plan, v)
-      }
-    } else if (p.type == "done") {
-      return {
-        ctx, scope, scopes,
-        value: v,
-        plan: null,
-      }
-    } else if (p.type == "print") {
-      ctx.print(v)
-      return kontinue(p.plan, L.symbols.nil)
-    } else if (p.type == "prompt-1") {
-      return {
-        ctx, scope, scopes,
-        term: p.term,
-        plan: {
-          type: "prompt-2",
-          scope, scopes,
-          tag: p.tag,
-          main: v,
-          plan: p.plan,
+        return {
+          ctx,
+          scope: plan.scope,
+          scopes: plan.scopes,
+          plan: plan.plan,
+          value,
         }
       }
-    } else if (p.type == "prompt-2") {
+    } else if (plan.type == "done") {
+      return {
+        ctx, 
+        scope: plan.scope, 
+        scopes: plan.scopes,
+        value,
+        plan: null,
+      }
+    } else if (plan.type == "print") {
+      ctx.print(value)
+      return {
+        ctx,
+        scope: plan.scope,
+        scopes: plan.scopes,
+        value: L.symbols.nil,
+        plan: plan.plan,
+      }
+    } else if (plan.type == "prompt-1") {
+      return {
+        ctx, 
+        scope: plan.scope, 
+        scopes: plan.scopes,
+        term: plan.term,
+        plan: {
+          type: "prompt-2",
+          scope: plan.scope,
+          scopes: plan.scopes,
+          tag: plan.tag,
+          main: value,
+          plan: plan.plan,
+        }
+      }
+    } else if (plan.type == "prompt-2") {
       return {
         ctx,
         scope: new Map,
-        scopes: p.main.scopes,
-        term: p.main.body,
+        scopes: plan.main.scopes,
+        term: plan.main.body,
         plan: {
           type: "prompt-marker",
-          scope, scopes,
-          tag: p.tag,
-          plan: p.plan,
-          handler: v,
+          scope: plan.scope, 
+          scopes: plan.scopes,
+          tag: plan.tag,
+          plan: plan.plan,
+          handler: value,
         },
       }
-    } else if (p.type == "control") {
+    } else if (plan.type == "control") {
       /*
 
         So, we've been asked to perform a control operation like
@@ -228,14 +245,14 @@ export function keval({ ctx, term, plan, scope, scopes }) {
         }
       }
       
-      let [capture, prompt] = copy(p.plan, p.tag)
+      let [capture, prompt] = copy(plan.plan, plan.tag)
       console.log("prompt", prompt)
       return {
         ctx,
         term: prompt.handler.body,
         scopes: prompt.handler.scopes,
         scope: new Map([
-          [prompt.handler.params[0], v],
+          [prompt.handler.params[0], value],
           [prompt.handler.params[1], {
             type: "continuation", 
             plan: capture,
@@ -243,23 +260,21 @@ export function keval({ ctx, term, plan, scope, scopes }) {
         ]),
         plan: prompt.plan,
       }
-    } else if (p.type == "resume-1") {
+    } else if (plan.type == "resume-1") {
       return {
-        ctx, scope, scopes,
-        term: p.term,
+        ctx, 
+        scope: plan.scope, 
+        scopes: plan.scopes,
+        term: plan.term,
         plan: {
           type: "resume-2",
-          scope, scopes, 
-          continuation: v,
-          plan: p.plan,
+          scope: plan.scope, 
+          scopes: plan.scopes,
+          continuation: value,
+          plan: plan.plan,
         }
       }
-    } else if (p.type == "resume-2") {
-      let scope0 = scope
-      let scopes0 = scopes
-      scope = p.continuation.scope
-      scopes = p.continuation.scopes
-
+    } else if (plan.type == "resume-2") {
       function rebase(pp, x) {
         if (pp.type === "done") {
           return x
@@ -268,25 +283,41 @@ export function keval({ ctx, term, plan, scope, scopes }) {
         }
       }
 
-      return kontinue(rebase(p.continuation.plan, p.plan), v)
-    } else if (p.type === "prompt-marker") {
-      return kontinue(p.plan, v)
+      return {
+        ctx,
+        scope: plan.continuation.scope,
+        scopes: plan.continuation.scopes,
+        value,
+        plan: rebase(plan.continuation.plan, plan.plan),
+      }
+    } else if (plan.type === "prompt-marker") {
+      return {
+        ctx,
+        scope: plan.scope,
+        scopes: plan.scopes,
+        value,
+        plan: plan.plan,
+      }
     }
 
-    console.error("continue", p, v)
+    console.error("continue", plan, value)
     throw new Error("can't continue")
   }
 
+  function kontinue(diff) {
+    return { ctx, scope, scopes, term, plan, ...diff }
+  }
+
   if (["number", "string"].includes(typeof term)) {
-    return kontinue(plan, term)
+    return kontinue({ value: term })
   } else if (isSymbol(term)) {
     let x = scope.get(term)
     if (x !== undefined) {
-      return kontinue(plan, x)
+      return kontinue({ value: x })
     } else {
       for (let s of scopes) {
         if ((x = s.get(term)) !== undefined) 
-          return kontinue(plan, x)
+          return kontinue({ value: x })
       }
     }
     console.error({ term, scope, scopes })
@@ -294,30 +325,35 @@ export function keval({ ctx, term, plan, scope, scopes }) {
   } else if (Array.isArray(term)) {
     if (isSymbol(term[0])) {
       if (term[0] === L.symbols["do"]) {
-        let next = {
-          type: "do",
-          scope, scopes, 
-          terms: term.slice(2),
-          plan,
-        }
-        return { ctx, term: term[1], plan: next, scope, scopes }
+        return kontinue({ 
+          term: term[1], 
+          plan: {
+            type: "do",
+            scope, scopes, 
+            terms: term.slice(2),
+            plan,
+          }
+        })
       } else if (term[0] === L.symbols["print"]) {
-        let next = {
-          type: "print",
-          scope, scopes, 
-          plan
-        }
-        return { ctx, term: term[1], plan: next, scope, scopes }
+        return kontinue({
+          term: term[1],
+          plan: {
+            type: "print",
+            scope, scopes, 
+            plan
+          }
+        })
       } else if (term[0] === L.symbols["lambda"]) {
-        return kontinue(plan, {
-          type: L.symbols["function"],
-          params: term[1],
-          body: term[2],
-          scopes: [scope, ...scopes],
+        return kontinue({
+          value: {
+            type: L.symbols["function"],
+            params: term[1],
+            body: term[2],
+            scopes: [scope, ...scopes],
+          }
         })
       } else if (term[0] === L.symbols["prompt"]) {
-        return {
-          ctx, scope, scopes,
+        return kontinue({
           term: term[2],
           plan: {
             type: "prompt-1",
@@ -326,10 +362,9 @@ export function keval({ ctx, term, plan, scope, scopes }) {
             term: term[3],
             plan
           }
-        }
+        })
       } else if (term[0] === L.symbols["control"]) {
-        return {
-          ctx, scope, scopes,
+        return kontinue({
           term: term[2],
           plan: {
             type: "control",
@@ -337,10 +372,9 @@ export function keval({ ctx, term, plan, scope, scopes }) {
             tag: term[1],
             plan
           }
-        }
+        })
       } else if (term[0] === L.symbols["resume"]) {
-        return {
-          ctx, scope, scopes,
+        return kontinue({
           term: term[1],
           plan: {
             type: "resume-1",
@@ -348,7 +382,7 @@ export function keval({ ctx, term, plan, scope, scopes }) {
             term: term[2],
             plan
           }
-        }
+        })
       }
     }
   }
