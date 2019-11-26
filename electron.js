@@ -8,7 +8,7 @@ let createProtocol = (scheme, normalize = true) => {
     (request, respond) => {
       let pathName = new URL(request.url).pathname;
       pathName = decodeURI(pathName); // Needed in case URL contains spaces
-    
+
       readFile(__dirname + "/" + pathName, (error, data) => {
         let extension = extname(pathName).toLowerCase();
         let mimeType = "";
@@ -29,7 +29,7 @@ let createProtocol = (scheme, normalize = true) => {
           mimeType = "application/json";
         }
 
-        respond({mimeType, data}); 
+        respond({mimeType, data});
       });
     },
     (error) => {
@@ -41,7 +41,7 @@ let createProtocol = (scheme, normalize = true) => {
 }
 
 // Standard scheme must be registered before the app is ready
-protocol.registerSchemesAsPrivileged([{ 
+protocol.registerSchemesAsPrivileged([{
   scheme: "app",
   privileges: {
     standard: true,
@@ -56,11 +56,15 @@ protocol.registerSchemesAsPrivileged([{
 app.on("ready", () => {
   createProtocol("app");
 
-  let browserWindow = new BrowserWindow({
+  let w = new BrowserWindow({
+    show: false,
     frame: false,
+    backgroundColor: "black",
     webPreferences: {
       preload: `${__dirname}/preload.js`,
     }
   })
-  browserWindow.loadFile("electron.html")
+
+  w.loadFile("electron.html")
+  w.once("ready-to-show", () => w.show())
 });
