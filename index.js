@@ -428,6 +428,7 @@ onload = () => {
     history: [
       { note: "Hello, and welcome to Restless Lisp." },
       { note: html`If all else fails, try <tt>(help)</tt>.` },
+      { note: html`<br/>` },
     ]
   }), document.body)
 }

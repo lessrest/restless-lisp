@@ -56,6 +56,11 @@ protocol.registerSchemesAsPrivileged([{
 app.on("ready", () => {
   createProtocol("app");
 
-  let browserWindow = new BrowserWindow({webPreferences: {preload: `${__dirname}/preload.js`}});
-  browserWindow.loadFile("index.html");
+  let browserWindow = new BrowserWindow({
+    frame: false,
+    webPreferences: {
+      preload: `${__dirname}/preload.js`,
+    }
+  })
+  browserWindow.loadFile("electron.html")
 });
