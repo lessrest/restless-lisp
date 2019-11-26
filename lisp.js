@@ -120,9 +120,7 @@ export function isSymbol(x) {
 // It should take an input state and produce an output state.
 // 
 export function keval({ ctx, term, value, plan, scope, scopes }) {
-  console.log("keval", term, value)
   if (value !== undefined) {
-    console.log("kontinue", plan.type)
     if (plan === null) 
       return { ctx, scope, scopes, value: v, plan: null }
 
@@ -246,7 +244,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       }
       
       let [capture, prompt] = copy(plan.plan, plan.tag)
-      console.log("prompt", prompt)
       return {
         ctx,
         term: prompt.handler.body,
@@ -590,12 +587,12 @@ export function stream(string) {
   return {
     peek: function () {
       if (i >= string.length)
-        throw new Error("eof")
+        return null
       return string[i]
     },
     next: function () {
       if (i >= string.length)
-        throw new Error("eof")
+        return null
       return string[i++]
     }
   }
@@ -663,7 +660,7 @@ function readNumber(input) {
   let s = ""
   for (;;) {
     let c = input.peek()
-    if (!c.match(/[0-9]/)) {
+    if (c === null || !c.match(/[0-9]/)) {
       break
     }
     s += input.next()
@@ -675,7 +672,7 @@ function readSymbol(ctx, input) {
   let s = ""
   for (;;) {
     let c = input.peek()
-    if (!c.match(/[-a-zA-Z_+!\?0-9:]/)) {
+    if (c === null || !c.match(/[-a-zA-Z_+!\?0-9:]/)) {
       break
     }
     s += input.next()

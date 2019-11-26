@@ -1,5 +1,13 @@
-html {
-  font: 16px/22px "iosevka aile";
+html, input {
+  font: 20px/30px "iosevka aile";
+  background: black;
+  color: ivory;
+}
+
+tt {
+  font-family: "iosevka aile";
+  font-style: normal;
+  color: #ccf;
 }
 
 body {
@@ -7,6 +15,7 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  margin: 0;
 }
 
 table:hover,
@@ -22,24 +31,38 @@ lisp-native { font-style: italic; }
 
 lisp-list, table {
   min-height: 1.3em;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   padding: 0 0.5rem;
   margin: 0.3rem 0.0rem;
 }
 
+lisp-error { color: #faa; }
+
 lisp-env, lisp-object { display: inline-flex; }
+
+lisp-input:before { content: "» "; }
+/* lisp-output:before { content: "! "; } */
+lisp-result:before { content: "« "; }
 
 lisp-list {
   display: inline-flex;
   flex-wrap: wrap;
-  align-items: center;
-  background: rgba(0, 0, 140, 0.02);
+  background: rgba(227, 255, 233, 0.13);
   box-shadow: 1px 1px 0 0 rgba(51, 102, 136, 0.5);
+}
+
+lisp-list { 
+  align-items: center;
+}
+
+lisp-history {
+  display: flex;
+  flex-direction: column; 
 }
 
 table {
   display: inline-table;
-  background: rgba(0, 150, 0, 0.02);
+  background: rgba(150, 150, 255, 0.1);
   border-style: dotted;
 }
 
@@ -85,3 +108,28 @@ td { vertical-align: top; }
 lisp-list:not(:last-child) { margin-right: .5rem; }
 
 [data-point="yes"] { background: rgba(0, 255, 0, 0.1); }
+
+body { height: 100vh; }
+
+lisp-repl {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+input { 
+  width: 100%;
+  background: black;
+  color: ivory;
+  outline: 0;
+  border: 0;
+  border-top: 1px solid #aaa;
+  line-height: 2rem;
+  padding: 0 1rem;
+}
+
+lisp-history { 
+  flex-grow: 1;
+  padding: 1rem;
+}
