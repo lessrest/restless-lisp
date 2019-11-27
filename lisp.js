@@ -2,9 +2,10 @@
 
 export let packages = {}
 
-let packageType
+let packageType = {}
+let symbolType = {}
 
-export function makePackage(name) { 
+export function makePackage(name) {
   return packages[name] = {
     type: packageType,
     name,
@@ -14,16 +15,15 @@ export function makePackage(name) {
 
 export let lisp = makePackage("lisp")
 
-let symbolType = { type: null, name: "symbol", "package": lisp }
-symbolType.type = symbolType
-
-packageType = {
-  type: symbolType,
-  "package": lisp,
-  name: "package",
-}
+packageType.type = symbolType,
+packageType["package"] = lisp
+packageType.name = "package"
 
 lisp.type = packageType
+
+symbolType.type = symbolType
+symbolType.name = "symbol"
+symbolType["package"] = lisp
 
 export function intern(package_, string) {
   if (package_.symbols.hasOwnProperty(string))
@@ -40,41 +40,61 @@ let L = lisp
 
 makePackage("keyword")
 
-function special(string) { 
-  intern(lisp, string).special = 1
+function special(string) {
+  let x = intern(lisp, string)
+  x.special = 1
+  return x
 }
 
-special("if")
-special("let")
-special("define-function")
-special("do")
-special("function")
-special("lambda")
-special("apply")
-special("set!")
-special("print")
-special("nil")
-special("prompt")
-special("control")
-special("resume")
+export const IF = special("if")
+export const LET = special("let")
+export const DEFUN = special("define-function")
+export const DO = special("do")
+export const FUNCTION = special("function")
+export const LAMBDA = special("lambda")
+export const APPLY = special("apply")
+export const SET = special("set!")
+export const PRINT = special("print")
+export const NIL = special("nil")
+export const PROMPT = special("prompt")
+export const CONTROL = special("control")
+export const RESUME = special("resume")
+export const DEFGENERIC = special("defgeneric")
+export const DEFMETHOD = special("defmethod")
+export const GENERIC_FUNCTION = special("generic-function")
+
+export const STRING = intern(lisp, "string")
+export const NUMBER = intern(lisp, "number")
+export const ARGS = intern(lisp, "args")
+
+function typeOf(x) {
+  if (typeof x === "string")
+    return STRING
+  else if (typeof x === "number")
+    return NUMBER
+  else {
+    console.error("typeOf", x)
+    throw new Error("typeOf")
+  }
+}
 
 function builtin(string, params, f) {
   intern(lisp, string)["function"] = {
-    type: lisp.symbols["function"],
+    type: FUNCTION,
     name: lisp.symbols[string],
     params,
     js: f,
   }
 }
 
-builtin("+", intern(lisp, "args"), scope => {
+builtin("+", ARGS, scope => {
   let result = 0
-  for (let x of scope.get(lisp.symbols.args)) result += x
+  for (let x of scope.get(ARGS)) result += x
   return result
 })
 
-builtin("-", intern(lisp, "args"), scope => {
-  let args = scope.get(lisp.symbols.args)
+builtin("-", ARGS, scope => {
+  let args = scope.get(ARGS)
   if (args.length == 0)
     throw new Error(`- needs one argument`)
   let result = args[0]
@@ -118,22 +138,23 @@ export function isSymbol(x) {
 // fully inspectable, what should the step function do?
 //
 // It should take an input state and produce an output state.
-// 
+//
 export function keval({ ctx, term, value, plan, scope, scopes }) {
+//  console.log("keval", { term, value, plan })
   if (value !== undefined) {
-    if (plan === null) 
-      return { ctx, scope, scopes, value: v, plan: null }
+    if (plan === null)
+      return { ctx, scope, scopes, value, plan: null }
 
     if (plan.type == "do") {
       if (plan.terms.length != 0) {
         return {
-          ctx, 
-          scope: plan.scope, 
+          ctx,
+          scope: plan.scope,
           scopes: plan.scopes,
           term: plan.terms[0],
           plan: {
-            type: "do", 
-            scope: plan.scope, 
+            type: "do",
+            scope: plan.scope,
             scopes: plan.scopes,
             terms: plan.terms.slice(1),
             plan: plan.plan,
@@ -150,8 +171,8 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       }
     } else if (plan.type == "done") {
       return {
-        ctx, 
-        scope: plan.scope, 
+        ctx,
+        scope: plan.scope,
         scopes: plan.scopes,
         value,
         plan: null,
@@ -162,13 +183,13 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         ctx,
         scope: plan.scope,
         scopes: plan.scopes,
-        value: L.symbols.nil,
+        value: NIL,
         plan: plan.plan,
       }
     } else if (plan.type == "prompt-1") {
       return {
-        ctx, 
-        scope: plan.scope, 
+        ctx,
+        scope: plan.scope,
         scopes: plan.scopes,
         term: plan.term,
         plan: {
@@ -188,7 +209,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         term: plan.main.body,
         plan: {
           type: "prompt-marker",
-          scope: plan.scope, 
+          scope: plan.scope,
           scopes: plan.scopes,
           tag: plan.tag,
           plan: plan.plan,
@@ -200,7 +221,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
 
         So, we've been asked to perform a control operation like
 
-          (control l v) 
+          (control l v)
 
         and we've evaluated t and v already.
 
@@ -229,7 +250,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         captured continuation."
 
         We implement +F+.
-        
+
        */
 
       function copy(pp, tag) {
@@ -242,7 +263,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           return [{ ...pp, plan: subcopy }, prompt]
         }
       }
-      
+
       let [capture, prompt] = copy(plan.plan, plan.tag)
       return {
         ctx,
@@ -251,7 +272,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         scope: new Map([
           [prompt.handler.params[0], value],
           [prompt.handler.params[1], {
-            type: "continuation", 
+            type: "continuation",
             plan: capture,
           }]
         ]),
@@ -259,13 +280,13 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       }
     } else if (plan.type == "resume-1") {
       return {
-        ctx, 
-        scope: plan.scope, 
+        ctx,
+        scope: plan.scope,
         scopes: plan.scopes,
         term: plan.term,
         plan: {
           type: "resume-2",
-          scope: plan.scope, 
+          scope: plan.scope,
           scopes: plan.scopes,
           continuation: value,
           plan: plan.plan,
@@ -295,6 +316,24 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         value,
         plan: plan.plan,
       }
+    } else if (plan.type === "evaluate-funcall-arguments") {
+      if (plan.terms.length === 0) {
+        return funcall({
+          f: plan["function"],
+          args: [...plan.args, value],
+          plan: plan.plan,
+        })
+      } else {
+        return {
+          ctx, scope, scopes,
+          term: plan.terms[0],
+          plan: {
+            ...plan,
+            args: [...plan.args, value],
+            terms: plan.terms.slice(1),
+          }
+        }
+      }
     }
 
     console.error("continue", plan, value)
@@ -305,6 +344,23 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     return { ctx, scope, scopes, term, plan, ...diff }
   }
 
+  function funcall({ f, args, plan }) {
+    if (f.type === GENERIC_FUNCTION) {
+      for (let m of f.methods) {
+        if (m.params.every(([name, type], i) => typeOf(args[i]) === type))
+          return kontinue({
+            scope: new Map(f.params.map((x, i) => [x, args[i]])),
+            scopes: m.scopes,
+            term: m.body,
+            plan
+          })
+      }
+      bad(`no-matching-method`)
+    } else {
+      bad(`weird-function-type: ${show(f.type)}`)
+    }
+  }
+
   if (["number", "string"].includes(typeof term)) {
     return kontinue({ value: term })
   } else if (isSymbol(term)) {
@@ -313,7 +369,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       return kontinue({ value: x })
     } else {
       for (let s of scopes) {
-        if ((x = s.get(term)) !== undefined) 
+        if ((x = s.get(term)) !== undefined)
           return kontinue({ value: x })
       }
     }
@@ -321,26 +377,26 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     throw new Error("unbound-variable")
   } else if (Array.isArray(term)) {
     if (isSymbol(term[0])) {
-      if (term[0] === L.symbols["do"]) {
-        return kontinue({ 
-          term: term[1], 
+      if (term[0] === DO) {
+        return kontinue({
+          term: term[1],
           plan: {
             type: "do",
-            scope, scopes, 
+            scope, scopes,
             terms: term.slice(2),
             plan,
           }
         })
-      } else if (term[0] === L.symbols["print"]) {
+      } else if (term[0] === PRINT) {
         return kontinue({
           term: term[1],
           plan: {
             type: "print",
-            scope, scopes, 
+            scope, scopes,
             plan
           }
         })
-      } else if (term[0] === L.symbols["lambda"]) {
+      } else if (term[0] === LAMBDA) {
         return kontinue({
           value: {
             type: L.symbols["function"],
@@ -349,239 +405,115 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             scopes: [scope, ...scopes],
           }
         })
-      } else if (term[0] === L.symbols["prompt"]) {
+      } else if (term[0] === PROMPT) {
         return kontinue({
           term: term[2],
           plan: {
             type: "prompt-1",
-            scope, scopes, 
+            scope, scopes,
             tag: term[1],
             term: term[3],
             plan
           }
         })
-      } else if (term[0] === L.symbols["control"]) {
+      } else if (term[0] === CONTROL) {
         return kontinue({
           term: term[2],
           plan: {
             type: "control",
-            scope, scopes, 
+            scope, scopes,
             tag: term[1],
             plan
           }
         })
-      } else if (term[0] === L.symbols["resume"]) {
+      } else if (term[0] === RESUME) {
         return kontinue({
           term: term[1],
           plan: {
             type: "resume-1",
-            scope, scopes, 
+            scope, scopes,
             term: term[2],
             plan
           }
         })
+      } else if (term[0] === DEFGENERIC) {
+        syntax(term.length === 3)
+        syntax(isSymbol(term[1]))
+        syntax(Array.isArray(term[2]))
+        syntax(term[2].every(x => isSymbol(x)))
+        term[1]["function"] = {
+          type: GENERIC_FUNCTION,
+          name: term[1],
+          params: term[2],
+          methods: [],
+        }
+        return kontinue({
+          value: term[1],
+          plan
+        })
+
+      } else if (term[0] === DEFMETHOD) {
+        syntax(term.length === 4)
+        syntax(isSymbol(term[1]))
+        syntax(Array.isArray(term[2]))
+        if (term[1]["function"].type !== GENERIC_FUNCTION)
+          bad("not-a-generic-function")
+
+        term[1]["function"].methods.push({
+          type: "method",
+          name: term[1],
+          params: term[2],
+          body: term[3],
+          scope, scopes
+        })
+
+        return kontinue({
+          value: term[1],
+          plan
+        })
+
+      } else if (isSymbol(term[0])) {
+        term[0]["function"] || bad("not-a-function")
+
+        if (term.length == 1) {
+          return funcall({
+            f: term[0]["function"],
+            args: [],
+            plan,
+          })
+
+        } else {
+          return kontinue({
+            term: term[1],
+            plan: {
+              type: "evaluate-funcall-arguments",
+              "function": term[0]["function"],
+              terms: term.slice(2),
+              args: [],
+              plan
+            }
+          })
+        }
       }
     }
   }
 
   console.error("unknown term", term)
-}
+  throw new Error("unknown term")
 
-export function eval_(ctx, term, scope = new Map, stack = [], depth = 0) {
-  // console.log(" ".repeat(depth), show(term))
-  
   function bad(x) {
     debugger
-    throw new Error(`${show(intern(L, x))} (${show(term)})`) 
+    throw new Error(`${show(intern(L, x))} (${show(term)})`)
   }
 
-  function syntax(x = term) {
-    debugger
-    throw new Error(`syntax-error (${show(x)})`)
-  }
-  
-  function E(term, subscope = scope, substack = stack) {
-    return eval_(ctx, term, subscope, substack, depth + 1)
-  }
-
-  function apply(λ, argterms) {
-    let subscope = new Map
-    if (isSymbol(λ.params)) {
-      let args = []
-      for (let i = 0; i < argterms.length; i++) {
-        let arg = E(argterms[i])
-        args.push(arg)
-      }
-      subscope.set(λ.params, args)
-    } else if (argterms.length == λ.params.length) {
-      for (let i = 0; i < λ.params.length; i++) {
-        let arg = E(argterms[i])
-        subscope.set(λ.params[i], arg)
-      }
-    } else {
-      bad("args-params-mismatch")
-    }
-
-    if (λ.body) {
-      let x = eval_(ctx, λ.body, subscope, λ.stack, depth + 1)
-      return x
-    } else if (λ.js) {
-      let x = λ.js.call(null, subscope)
-      return x
+  function syntax(p, x = term) {
+    if (!p) {
+      debugger
+      throw new Error(`syntax-error ${text} (${show(x)})`)
     }
   }
-  
-  if (typeof term == "number")
-    return term
-  else if (typeof term == "string")
-    return term
-  else if (term === L.symbols.nil)
-    return term
-  else if (isSymbol(term)) {
-    let x = scope.get(term)
-    if (x !== undefined) {
-      return x
-    } else {
-      for (let s of stack) {
-        if ((x = s.get(term)) !== undefined) return x
-      }
-    }
-    bad("unbound-variable")
-  } else if (Array.isArray(term)) {
-    if (term.length > 0) {
-      switch (term[0]) {
-      case L.symbols["if"]: {
-        if (term.length != 4) syntax()
-        return E(E(term[1]) ? term[2] : term[3])
-      }
-        
-      // case L.symbols["+"]: {
-      //   if (term.length <= 1) syntax()
-      //   let x = 0
-      //   for (let i = 1; i < term.length; i++)
-      //     x += E(term[i])
-      //   return x
-      // }
-        
-      case L.symbols["-"]: {
-        if (term.length <= 2) syntax()
-        let x = E(term[1])
-        for (let i = 2; i < term.length; i++)
-          x -= E(term[i])
-        return x
-      }
-        
-      case L.symbols["define-function"]: {
-        if (term.length != 4) syntax()
-        if (!isSymbol(term[1])) syntax()
-        if (!Array.isArray(term[2])) syntax()
-        if (term[2].some(x => !isSymbol(x))) syntax()
-        return (
-          term[1]["function"] = {
-            type: L.symbols["function"],
-            name: term[1],
-            params: term[2],
-            body: term[3],
-            stack: [scope, ...stack],
-          }
-        )
-      }
-
-      case L.symbols.lambda: {
-        if (term.length != 3) syntax()
-        if (!Array.isArray(term[1])) syntax()
-        if (term[1].some(x => !x.symbol)) syntax()
-        return {
-          type: L.symbols["function"],
-          params: term[1],
-          body: term[2],
-          stack: [scope, ...stack],
-        }
-      }
-
-      case L.symbols["function"]: {
-        if (term.length != 2) syntax()
-        if (!isSymbol(term[1])) syntax()
-        if (!term[1]["function"]) bad("no-function")
-        return term[1]["function"]
-      }
-
-      case L.symbols["let"]: 
-        {
-          if (term.length != 3) syntax()
-          if (!Array.isArray(term[1])) syntax()
-          let subscope = new Map
-          for (let x of term[1]) {
-            if (!Array.isArray(x) || x.length != 2) syntax()
-            if (!isSymbol(x[0])) syntax()
-            let v = E(x[1])
-            subscope.set(x[0], v)
-          }
-          let x = eval_(ctx, term[2], subscope, [scope, ...stack], depth + 1)
-          return x
-        }
-
-      case L.symbols.apply: {
-        if (term.length != 3) syntax()
-        let λ = E(term[1])
-        let argterms = term[2]
-        return apply(λ, argterms)
-      }
-
-      case L.symbols.print:
-        {
-          if (term.length != 2) syntax()
-          let x = E(term[1])
-          ctx.print(x)
-          return L.nil
-        }
-        
-      case L.symbols["do"]: 
-        {
-          let x
-          for (let subterm of term.slice(1))
-            x = E(subterm)
-          return x
-        }
-        
-      case L.symbols["set!"]:
-        {
-          if (term.length != 3) syntax()
-          if (!isSymbol(term[1])) syntax()
-          let where
-          if (scope.has(term[1]))
-            where = scope
-          else {
-            for (let x of stack) {
-              if (x.has(term[1])) {
-                where = x
-                break
-              }
-            }
-            if (!where)
-              bad("no-such-variable")
-          }
-          let x = E(term[2])
-          where.set(term[1], x)
-          return x
-        }
-        
-      }
-      
-      if (isSymbol(term[0])) {
-        let λ = term[0]["function"]
-        if (λ) {
-          let argterms = term.slice(1)
-          return apply(λ, argterms)
-        } else {
-          bad(`no-defun`)
-        }
-      }
-    }
-  }
-  syntax()
 }
-  
+
 export function stream(string) {
   let i = 0
   return {
@@ -600,7 +532,7 @@ export function stream(string) {
 
 export function read(ctx, input) {
   skipSpaces(input)
-  
+
   let c = input.peek()
 
   if (c == ')')
@@ -609,7 +541,7 @@ export function read(ctx, input) {
   if (c == '(') {
     input.next()
     return readList(ctx, input)
-  } 
+  }
 
   if (c == '"') {
     input.next()
@@ -713,8 +645,8 @@ export let ctx = {
 export let example = read(ctx, stream(`
   (do
     (define-function repeat (n f)
-      (if n 
-        (do 
+      (if n
+        (do
           (apply f ())
           (repeat (- n 1) f))
         nil))
@@ -725,8 +657,8 @@ export let example = read(ctx, stream(`
           counter)))
     (repeat 3
       (lambda ()
-        (do 
-          (print "Ticking.") 
+        (do
+          (print "Ticking.")
           (print (tick)))))
     (function tick))
 `))

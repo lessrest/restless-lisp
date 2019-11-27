@@ -1,21 +1,21 @@
-import { read, stream, packages, keval } from './lisp.js'
+import { read, stream, packages, keval, NIL } from './lisp.js'
 import { deepEqual } from 'assert'
 
 let { user, lisp } = packages
 
-function testProgram({ 
+function testProgram({
   name,
   ctx = {
     home: user,
     used: [user, lisp],
   },
-  program, 
+  code,
   expect,
-  limit = 100, 
+  limit = 100,
 }) {
   process.stdout.write(`${name}: `)
-  
-  let term = read(ctx, stream(program))
+
+  let term = read(ctx, stream(code))
   let i = 0
   let output = []
   let s = {
@@ -39,34 +39,64 @@ function testProgram({
   process.stdout.write(`ok\n`)
 }
 
-testProgram({
-  name: "prompt with multiple resumptions",
-  program: `
-    (do
-      (print
-        (prompt 0
-          (lambda ()
-            (do (print (control 0 "escaped"))
-                (print "returned")
-                "done A"))
-          (lambda (v k)
-            (do (print "controlled")
-                (print v)
-                (resume k "restart 1")
-                (resume k "restart 2")))))
-      (print "ok"))
-  `,
-  expect: {
-    output: [
-      "controlled",
-      "escaped",
-      "restart 1",
-      "returned",
-      "restart 2",
-      "returned",
-      "done A",
-      "ok",
-    ],
-    result: lisp.symbols.nil,
+export let tests = [
+  {
+    name: "prompt with multiple resumptions",
+    code: `
+      (do
+        (print
+          (prompt 0
+            (lambda ()
+              (do (print (control 0 "escaped"))
+                  (print "returned")
+                  "done A"))
+            (lambda (v k)
+              (do (print "controlled")
+                  (print v)
+                  (resume k "restart 1")
+                  (resume k "restart 2")))))
+        (print "ok"))
+    `,
+    expect: {
+      output: [
+        "controlled",
+        "escaped",
+        "restart 1",
+        "returned",
+        "restart 2",
+        "returned",
+        "done A",
+        "ok",
+      ],
+      result: NIL,
+    },
   },
-})
+
+  {
+    name: "defgeneric/defmethod",
+    code: `
+      (do
+        (defgeneric foo (x))
+        (defmethod foo ((x number))
+          (do
+            (print "number")
+            (print 1)))
+        (defmethod foo ((x string))
+          (do
+            (print "string")
+            (print x)))
+        (foo 1)
+        (foo "hey"))
+    `,
+    expect: {
+      output: ["number", 1, "string", "hey"],
+      result: NIL,
+    },
+  },
+]
+
+for (let test of tests) {
+  // if (test.name === "defgeneric/defmethod") {
+    testProgram(test)
+  // }
+}

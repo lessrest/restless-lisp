@@ -1,18 +1,19 @@
-import { 
-  packages, 
-  isSymbol, 
-  makePackage, 
-  eval_,
+import {
+  packages,
+  isSymbol,
+  makePackage,
   keval,
   example,
   read,
   stream
 } from './lisp.js'
 
-import htm 
+// import { tests } from './test.js'
+
+import htm
   from './htm.js'
-import { 
-  Component, render, createContext, h 
+import {
+  Component, render, createContext, h
 } from './preact.js'
 
 let html = htm.bind(h)
@@ -25,11 +26,13 @@ class Term extends Component {
   constructor(props) {
     super(props)
     this.state = {
-      expanded: props.expanded
+      expanded: !!props.expanded
     }
   }
-  
-  expand = () => {
+
+  expand = e => {
+    e.stopPropagation()
+    console.log("click", this.state.expanded)
     this.setState({ expanded: !this.state.expanded })
   }
 
@@ -71,11 +74,11 @@ class Term extends Component {
     }
     else if (isSymbol(term)) {
       return h(
-        Context.Consumer, {}, 
+        Context.Consumer, {},
         context => {
           let attrs = { onclick: this.expand }
           if (term.special) attrs["class"] = "special"
-          
+
           let name
           if (context.used.includes(term.package))
             name = term.name
@@ -85,7 +88,7 @@ class Term extends Component {
           if (state.expanded) console.log("yep")
 
           return h(
-            "lisp-symbol", { ...pointy, ...attrs }, 
+            "lisp-symbol", { ...pointy, ...attrs },
             state.expanded ? renderFields() : name
           )
         }
@@ -102,7 +105,7 @@ class Term extends Component {
            ${term.map(x => html`<${Term} term=${x} point=${point}/>`)}
          </lisp-list>
        `
-      } else 
+      } else
         return html`<lisp-list class=empty ...${pointy}></lisp-list>`
     } else if (typeof term == "object" && term.type) {
       if (state.expanded) {
@@ -113,7 +116,7 @@ class Term extends Component {
         return html`
         <lisp-object onclick=${this.expand} ...${pointy}><i>object</i></lisp-object>
        `
-      } 
+      }
     } else if (typeof term == "object") {
       if (state.expanded) {
         return html`
@@ -123,7 +126,7 @@ class Term extends Component {
         return html`
           <lisp-object ...${pointy} onclick=${this.expand}><i>object</i></lisp-object>
          `
-      } 
+      }
     } else if (term === undefined) {
         return html`
           <lisp-undefined ...${pointy}><b>undefined</b></lisp-undefined>
@@ -131,38 +134,6 @@ class Term extends Component {
     } else
       throw new Error(`unknown thing: ${term}`)
   }
-}
-
-function foo () {
-  let output = []
-  let ctx = {
-    used: [packages.user, packages.lisp],
-    print: x => output.push(x)
-  }
-
-  let expr = html`
-    <${Context.Provider} value=${ctx}>
-      <${Term} term=${example}/>
-    </>`
-  render(expr, document.body)
-
-  let value = eval_(ctx, example)
-  render(
-    html`
-     <${Context.Provider} value=${ctx}>
-       <div>
-         <div>
-           ${expr}
-         </div>
-         <div>
-           Output was <${Term} term=${output}/>.
-         </div>
-         <div>
-           Result was <${Term} term=${value}/>.
-         </div>
-       </div>
-     </>`, 
-    document.body)
 }
 
 function bar () {
@@ -226,14 +197,14 @@ function bar () {
            ${s.map(x => h("li", {}, h(Term, { term: x })))}
          </ol>
        </div>
-     </>`, 
+     </>`,
     document.body)
 }
 
 class Debugger extends Component {
   constructor(props) {
     super(props)
-    this.state = { 
+    this.state = {
       output: [],
       program: props.machine.term,
       machine: props.machine,
@@ -242,7 +213,7 @@ class Debugger extends Component {
 
   step = () => {
     let output = []
-    this.setState({ 
+    this.setState({
       machine: keval({
         ...this.state.machine,
         ctx: {
@@ -256,7 +227,7 @@ class Debugger extends Component {
       }
     })
   }
-  
+
   render(props, state) {
     return h(Context.Provider, { value: state.machine.ctx }, html`
       <lisp-debugger>
@@ -311,9 +282,19 @@ function baz() {
       (print "ok"))
   `))
 
+  let test2 = read(ctx, stream(`
+    (do
+      (defgeneric foo (x))
+      (defmethod foo ((x number))
+        (do
+          (print "number")
+          (print 1)))
+      (foo 1))
+  `))
+
   let s = {
     ctx,
-    term: test,
+    term: test2,
     plan: { type: "done" },
     scope: new Map,
     scopes: [],
@@ -322,8 +303,8 @@ function baz() {
   render(h(Debugger, { machine: s }), document.body)
 }
 
-function execute({ 
-  ctx, term, limit = 100, 
+function execute({
+  ctx, term, limit = 100,
 }) {
   let i = 0
   let output = []
@@ -369,7 +350,7 @@ class Repl extends Component {
     e.preventDefault()
     this.setState({ input: "" })
     let term = read(this.state.ctx, stream(this.state.input))
-    
+
     this.append({ input: term })
 
     console.log(this.state)
@@ -380,7 +361,7 @@ class Repl extends Component {
         term,
         limit: 100,
       })
-  
+
       if (s.plan === null) {
         this.append({ result: s.value })
       } else {
@@ -406,13 +387,13 @@ class Repl extends Component {
       else
         throw new Error(x)
     }
-    
+
     return h(Context.Provider, { value: this.state.ctx }, [
       h("lisp-repl", {}, [
         h("lisp-history", {}, state.history.map(x => History(x))),
         h("form", {
           onsubmit: e => this.submit(e)
-        }, h("input", { 
+        }, h("input", {
           placeholder: "Lisp term...",
           autofocus: true,
           value: this.state.input,
@@ -424,14 +405,22 @@ class Repl extends Component {
 }
 
 onload = () => {
-  render(h(Repl, { 
+  render(h(Repl, {
     history: [
-      { note: "Hello, and welcome to Restless Lisp." },
-      { note: html`If all else fails, try <tt>(help)</tt>.` },
-      { note: html`<br/>` },
+      {
+        note: h("header", {}, [
+          h("img", {
+            src: "img/lusen02b.svg",
+            style: `width: 14vw; align-self: center `
+          }) ,
+          html`<p>Welcome to Restless Lisp.<br/></p>`,
+          html`<br/>`
+        ])
+      }
     ]
   }), document.body)
 }
 
-// (prompt 0 (lambda () (control 0 "x")) (lambda (x k) k))
+// onload = () => baz()
 
+// (prompt 0 (lambda () (control 0 "x")) (lambda (x k) k))
