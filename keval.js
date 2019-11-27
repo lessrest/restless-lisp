@@ -14,6 +14,8 @@ import {
 
   typeOf,
   show,
+  intern,
+  lisp,
 } from "./lisp.js"
 
 // Here is a small-step evaluation function with some kind of
@@ -385,7 +387,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
 
   function bad(x) {
     debugger
-    throw new Error(`${show(intern(L, x))} (${show(term)})`)
+    throw new Error(`${show(intern(lisp, x))} (${show(term)})`)
   }
 
   function syntax(p, x = term) {
