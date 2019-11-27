@@ -3,7 +3,7 @@ import { Term } from "./term.js"
 import { packages, read, stream } from "./lisp.js"
 import { execute } from "./keval.js"
 
-import { Component, h } from "./preact.js"
+import { Component, h } from "./vendor/preact.js"
 
 export class Repl extends Component {
   constructor(props) {

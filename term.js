@@ -2,7 +2,7 @@ import { isSymbol } from './lisp.js'
 import Context from './react-context.js'
 import { html } from './html.js'
 
-import { Component, h } from './preact.js'
+import { Component, h } from './vendor/preact.js'
 
 export class Term extends Component {
   constructor(props) {

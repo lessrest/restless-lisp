@@ -13,7 +13,7 @@ import { keval } from "./keval.js"
 
 import { html } from "./html.js"
 
-import { render, h } from "./preact.js"
+import { render, h } from "./vendor/preact.js"
 
 import Context from "./react-context.js"
 

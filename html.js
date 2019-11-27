@@ -1,4 +1,4 @@
-import { h } from './preact.js'
-import htm from './htm.js'
+import { h } from './vendor/preact.js'
+import htm from './vendor/htm.js'
 
 export let html = htm.bind(h)
