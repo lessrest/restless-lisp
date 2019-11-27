@@ -662,3 +662,24 @@ export let example = read(ctx, stream(`
           (print (tick)))))
     (function tick))
 `))
+
+export function execute({
+  ctx, term, limit = 100,
+}) {
+  let i = 0
+  let output = []
+  let s = {
+    ctx,
+    term,
+    plan: { type: "done" },
+    scope: new Map,
+    scopes: [],
+  }
+
+  for (;;) {
+    if (i++ > limit)
+      return s
+    if ((s = keval(s)).plan === null)
+      return s
+  }
+}
