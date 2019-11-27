@@ -1,6 +1,7 @@
 import Context from "./react-context.js"
 import { Term } from "./term.js"
-import { packages, read, stream, execute } from "./lisp.js"
+import { packages, read, stream } from "./lisp.js"
+import { execute } from "./keval.js"
 
 import { Component, h } from "./preact.js"
 

@@ -1,4 +1,5 @@
-import { read, stream, packages, keval, NIL } from './lisp.js'
+import { read, stream, packages, NIL } from './lisp.js'
+import { keval } from "./keval.js"
 import { deepEqual } from 'assert'
 
 let { user, lisp } = packages

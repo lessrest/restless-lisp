@@ -4,11 +4,12 @@ import {
   packages,
   isSymbol,
   makePackage,
-  keval,
   example,
   read,
   stream
 } from './lisp.js'
+
+import { keval } from "./keval.js"
 
 import { html } from "./html.js"
 
