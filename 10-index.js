@@ -1,5 +1,3 @@
-import { Repl } from "./repl.js"
-
 import {
   packages,
   isSymbol,
@@ -7,15 +5,19 @@ import {
   example,
   read,
   stream
-} from './lisp.js'
+} from "./01-lisp.js"
 
-import { keval } from "./keval.js"
+import { keval } 
+  from "./02-keval.js"
+import { html } 
+  from "./11-html.js"
+import Context 
+  from "./12-react-context.js"
+import { Repl } 
+  from "./31-repl.js"
 
-import { html } from "./html.js"
-
-import { render, h } from "./vendor/preact.js"
-
-import Context from "./react-context.js"
+import { render, h } 
+  from "./vendor/preact.js"
 
 window.packages = packages
 

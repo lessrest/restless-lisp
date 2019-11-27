@@ -1,8 +1,12 @@
-import { isSymbol } from './lisp.js'
-import Context from './react-context.js'
-import { html } from './html.js'
+import { isSymbol } 
+  from "./01-lisp.js"
+import { html }
+  from "./11-html.js"
+import Context
+  from "./12-react-context.js"
 
-import { Component, h } from './vendor/preact.js'
+import { Component, h } 
+  from "./vendor/preact.js"
 
 export class Term extends Component {
   constructor(props) {

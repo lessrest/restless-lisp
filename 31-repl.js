@@ -1,9 +1,14 @@
-import Context from "./react-context.js"
-import { Term } from "./term.js"
-import { packages, read, stream } from "./lisp.js"
-import { execute } from "./keval.js"
+import { packages, read, stream } 
+  from "./01-lisp.js"
+import { execute }
+  from "./02-keval.js"
+import Context
+  from "./12-react-context.js"
+import { Term }
+  from "./32-term.js"
 
-import { Component, h } from "./vendor/preact.js"
+import { Component, h } 
+  from "./vendor/preact.js"
 
 export class Repl extends Component {
   constructor(props) {

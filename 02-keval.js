@@ -1,4 +1,3 @@
-import { isSymbol } from "./lisp.js"
 import {
   CONTROL,
   DEFGENERIC,
@@ -12,11 +11,12 @@ import {
   PROMPT,
   RESUME,
 
+  isSymbol,
   typeOf,
   show,
   intern,
   lisp,
-} from "./lisp.js"
+} from "./01-lisp.js"
 
 // Here is a small-step evaluation function with some kind of
 // "defunctionalized continuations", or simple data structures

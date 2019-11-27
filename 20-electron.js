@@ -57,7 +57,7 @@ app.on("ready", () => {
     frame: false,
     backgroundColor: "black",
     webPreferences: {
-      preload: `${__dirname}/preload.js`,
+      preload: `${__dirname}/electron-preload.js`,
     }
   })
 

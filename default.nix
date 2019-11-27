@@ -21,6 +21,6 @@ in writeTextFile {
   text = ''
     #!${bash}/bin/bash
     export PATH="${lib.makeBinPath deps}":/run/wrappers/bin
-    electron 2>/dev/null ${restless-lisp-source}/share/restless-lisp/electron.js
+    electron 2>/dev/null ${restless-lisp-source}/share/restless-lisp/20-electron.js
   '';
 }

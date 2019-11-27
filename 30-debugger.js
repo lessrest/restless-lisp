@@ -1,5 +1,7 @@
-import { keval } from './keval.js'
-import Context from './react-context.js'
+import { keval } 
+  from "./01-keval.js"
+import Context 
+  from "./12-react-context.js"
 
 class Debugger extends Component {
   constructor(props) {

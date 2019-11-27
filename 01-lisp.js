@@ -1,5 +1,3 @@
-"use strict";
-
 export let packages = {}
 
 let packageType = {}
