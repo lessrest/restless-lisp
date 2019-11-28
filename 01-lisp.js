@@ -60,6 +60,7 @@ export const PRINT = special("print")
 export const PROMPT = special("prompt")
 export const RESUME = special("resume")
 export const SET = special("set!")
+export const QUOTE = special("quote")
 
 export const ARGS = intern(lisp, "args")
 export const NIL = intern(lisp, "nil")

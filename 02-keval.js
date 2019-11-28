@@ -10,6 +10,7 @@ import {
   PRINT,
   PROMPT,
   RESUME,
+  QUOTE,
 
   isSymbol,
   typeOf,
@@ -24,11 +25,11 @@ import {
 // a computation.
 //
 export function keval({ ctx, term, value, plan, scope, scopes }) {
-  
+
   if (value !== undefined) {
     // If we have a value, then the term has been fully evaluated.
     // We should carry out the current plan, and move on.
-    
+
     if (plan === null)
       return { ctx, scope, scopes, value, plan: null }
 
@@ -253,7 +254,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       throw new Error(`syntax-error ${text} (${show(x)})`)
     }
   }
-  
+
   function funcall({ f, args, plan }) {
     if (f.type === GENERIC_FUNCTION) {
       for (let m of f.methods) {
@@ -274,7 +275,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
   // Self-evaluating literal?
   if (["number", "string"].includes(typeof term)) {
     return kontinue({ value: term })
-  } 
+  }
 
   // Variable reference?
   else if (isSymbol(term)) {
@@ -289,13 +290,20 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     }
     console.error({ term, scope, scopes })
     throw new Error("unbound-variable")
-  } 
+  }
 
   // Special form or function call?
   else if (Array.isArray(term)) {
-    
+
     if (isSymbol(term[0])) {
-      if (term[0] === DO) {
+      if (term[0] === QUOTE) {
+        return kontinue({
+          value: term[1],
+          plan
+        })
+      }
+
+      else if (term[0] === DO) {
         return kontinue({
           term: term[1],
           plan: {
@@ -305,7 +313,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             plan,
           }
         })
-      } 
+      }
 
       else if (term[0] === PRINT) {
         return kontinue({
@@ -316,7 +324,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             plan
           }
         })
-      } 
+      }
 
       else if (term[0] === LAMBDA) {
         return kontinue({
@@ -327,8 +335,8 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             scopes: [scope, ...scopes],
           }
         })
-      } 
-      
+      }
+
       else if (term[0] === PROMPT) {
         return kontinue({
           term: term[2],
@@ -340,7 +348,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             plan
           }
         })
-      } 
+      }
 
       else if (term[0] === CONTROL) {
         return kontinue({
@@ -352,7 +360,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             plan
           }
         })
-      } 
+      }
 
       else if (term[0] === RESUME) {
         return kontinue({
@@ -364,26 +372,26 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             plan
           }
         })
-      } 
+      }
 
       else if (term[0] === DEFGENERIC) {
         syntax(term.length === 3)
         syntax(isSymbol(term[1]))
         syntax(Array.isArray(term[2]))
         syntax(term[2].every(x => isSymbol(x)))
-        
+
         term[1]["function"] = {
           type: GENERIC_FUNCTION,
           name: term[1],
           params: term[2],
           methods: [],
         }
-        
+
         return kontinue({
           value: term[1],
           plan
         })
-      } 
+      }
 
       else if (term[0] === DEFMETHOD) {
         syntax(term.length === 4)
@@ -404,7 +412,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           value: term[1],
           plan
         })
-      } 
+      }
 
       else if (isSymbol(term[0])) {
         term[0]["function"] || bad("not-a-function")
@@ -429,7 +437,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           })
         }
       }
-    } 
+    }
 
     bad(`cannot apply non-symbol`)
   }
