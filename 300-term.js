@@ -1,6 +1,6 @@
 import { isSymbol, ctx }
   from "./01-lisp.js"
-import { h, html }
+import { h }
   from "./11-html.js"
 
 export function elli(node, f) {
@@ -31,18 +31,6 @@ function paint(node, ...children) {
 }
 
 export function draw(ctx, term) {
-  let renderFields = () => {
-    let rows = []
-    for (let [k, v] of Object.entries(term)) {
-      rows.push(
-        h("tr", {}, [
-          h("td", {}, k),
-          h("td", {}, draw(ctx, v)),
-        ]))
-    }
-    return h("table", {}, rows)
-  }
-
   function expandable(node, x) {
     return elli(
       node,
@@ -65,14 +53,30 @@ export function draw(ctx, term) {
     )
   }
 
+  function renderFields() {
+    let rows = []
+    for (let [k, v] of Object.entries(term)) {
+      rows.push(
+        h("tr", {}, [
+          h("td", {}, k),
+          h("td", {}, draw(ctx, v)),
+        ]))
+    }
+    return h("table", {}, rows)
+  }
+
   if (term === null)
     return h("lisp-null", { }, h("b", {}, "null"))
+
   if (typeof term == "number")
     return h("lisp-number", { }, `${term}`)
+
   else if (typeof term == "string")
     return h("lisp-string", { }, term)
+
   else if (typeof term == "function")
     return h("lisp-native", { }, "JavaScript function")
+
   else if (term instanceof Map) {
     let rows = []
     for (let [k, v] of term) {
@@ -81,7 +85,7 @@ export function draw(ctx, term) {
         h("td", {}, draw(ctx, v)),
       ]))
     }
-    return html`<lisp-env><table>${rows}</table></lisp-env>`
+    return h("lisp-env", {}, h("table", {}, rows))
   }
 
   else if (isSymbol(term)) {
@@ -108,7 +112,7 @@ export function draw(ctx, term) {
         "lisp-list", { ...attrs },
         term.map(x => draw(ctx, x)))
     } else {
-      return html`<lisp-list class=empty></lisp-list>`
+      return h("lisp-list", { "class": "empty" })
     }
 
   } else if (typeof term == "object" && term.type) {
@@ -116,15 +120,16 @@ export function draw(ctx, term) {
       h("lisp-object"),
       expanded => expanded ? renderFields() : h("i", {}, "object")
     )
+
   } else if (typeof term == "object") {
     return expandable(
       h("lisp-object"),
       expanded => expanded ? renderFields() : h("i", {}, "object")
     )
+
   } else if (term === undefined) {
-      return html`
-        <lisp-undefined><b>undefined</b></lisp-undefined>
-       `
+    return h("lisp-undefined", {}, "undefined")
+
   } else
     throw new Error(`unknown thing: ${term}`)
 }
