@@ -4,18 +4,18 @@ import {
   makePackage,
 } from "./01-lisp.js"
 
-import { keval } 
+import { keval }
   from "./02-keval.js"
 import { readFromString }
   from "./03-read.js"
-import { html } 
+import { html }
   from "./11-html.js"
-import Context 
+import Context
   from "./12-react-context.js"
-import { Repl } 
+import { Repl }
   from "./31-repl.js"
 
-import { render, h } 
+import { render, h }
   from "./vendor/preact.js"
 
 window.packages = packages
@@ -135,7 +135,7 @@ onload = () => {
         note: h("header", {}, [
           h("img", {
             src: "img/lusen02b.svg",
-            style: `width: 14vw; align-self: center `
+            style: `width: 8rem; align-self: center `
           }) ,
           html`<p>Welcome to Restless Lisp.<br/></p>`,
           html`<br/>`
