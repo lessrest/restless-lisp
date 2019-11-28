@@ -63,4 +63,14 @@ app.on("ready", () => {
 
   w.loadFile("electron.html")
   w.once("ready-to-show", () => w.show())
+
+  w.webContents.on("before-input-event", (e, i) => {
+    if (app.keyCallback) {
+      e.cancelPropagation()
+      app.keyCallback(e)
+    }
+  })
+
 });
+
+app.hey = console.log("HEY")

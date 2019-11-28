@@ -144,3 +144,16 @@ header {
   flex-direction: column;
   align-items: center;
 }
+
+lisp-buffer {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+lisp-cursor {
+  background-color: #422;
+  border: 1px solid ivory;
+  border-radius: 2px;
+  width: 5px;
+  margin: 0 .5em;
+}

@@ -2,6 +2,7 @@ import {
   packages,
   isSymbol,
   makePackage,
+  LAMBDA,
 } from "./01-lisp.js"
 
 import { keval }
@@ -14,6 +15,8 @@ import Context
   from "./12-react-context.js"
 import { Repl }
   from "./31-repl.js"
+import { Buffer }
+  from "./40-buffer.js"
 
 import { render, h }
   from "./vendor/preact.js"
@@ -50,7 +53,6 @@ function bar () {
   render(expr, document.body)
 
   let s = [{
-    ctx,
     term: test,
     plan: { type: "done" },
     scope: new Map,
@@ -143,6 +145,32 @@ onload = () => {
       }
     ]
   }), document.body)
+}
+
+let xxxonload = () => {
+  let path = [0]
+
+  function draw() {
+    render(h(Buffer, {
+      values: [["Hello,", "world."], ["What's up?"]],
+      path,
+    }), document.body)
+  }
+
+  window.onkeypress = e => {
+    console.log("key", e)
+    if (e.key === "n") {
+      path[path.length - 1]++
+    }
+
+    else if (e.key === "p") {
+      path[path.length - 1]--
+    }
+
+    draw()
+  }
+
+  draw()
 }
 
 // onload = () => baz()
