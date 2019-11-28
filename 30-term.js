@@ -1,11 +1,11 @@
-import { isSymbol } 
+import { isSymbol }
   from "./01-lisp.js"
 import { html }
   from "./11-html.js"
 import Context
   from "./12-react-context.js"
 
-import { Component, h } 
+import { Component, h }
   from "./vendor/preact.js"
 
 export class Term extends Component {
@@ -66,7 +66,7 @@ export class Term extends Component {
 
           let name
           if (context.used.includes(term.package))
-            name = term.name
+            name = term.alias || term.name
           else
             name = `${term.package.name}:${term.name}`
 

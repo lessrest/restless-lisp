@@ -62,6 +62,8 @@ export const RESUME = special("resume")
 export const SET = special("set!")
 export const QUOTE = special("quote")
 
+LAMBDA.alias = "λ"
+
 export const ARGS = intern(lisp, "args")
 export const NIL = intern(lisp, "nil")
 export const NUMBER = intern(lisp, "number")
