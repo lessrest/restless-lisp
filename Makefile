@@ -1,1 +1,1 @@
-all:; node --experimental-modules test.js
+all:; node --experimental-modules 04-test.js

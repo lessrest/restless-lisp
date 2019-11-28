@@ -1,26 +1,34 @@
-import { read, stream, packages, NIL } 
+import { packages, NIL } 
   from "./01-lisp.js"
 import { keval } 
   from "./02-keval.js"
+import { readFromString }
+  from "./03-read.js"
 
 import { deepEqual } 
-  from 'assert'
+  from "assert"
 
 let { user, lisp } = packages
 
+let defaultCtx = {
+  packages: {
+    lisp,
+    user,
+  },
+  used: [user, lisp],
+  home: user,
+}
+
 function testProgram({
   name,
-  ctx = {
-    home: user,
-    used: [user, lisp],
-  },
+  ctx = defaultCtx,
   code,
   expect,
   limit = 100,
 }) {
   process.stdout.write(`${name}: `)
 
-  let term = read(ctx, stream(code))
+  let term = readFromString(ctx, code)
   let i = 0
   let output = []
   let s = {
@@ -100,8 +108,27 @@ export let tests = [
   },
 ]
 
+export let example = readFromString(defaultCtx, `
+  (do
+    (define-function repeat (n f)
+      (if n
+        (do
+          (apply f ())
+          (repeat (- n 1) f))
+        nil))
+    (let ((counter 0))
+      (define-function tick ()
+        (do
+          (set! counter (+ counter 1))
+          counter)))
+    (repeat 3
+      (lambda ()
+        (do
+          (print "Ticking.")
+          (print (tick)))))
+    (function tick))
+`)
+
 for (let test of tests) {
-  // if (test.name === "defgeneric/defmethod") {
-    testProgram(test)
-  // }
+  testProgram(test)
 }

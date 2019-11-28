@@ -1,7 +1,9 @@
-import { keval } 
+import { keval }
   from "./01-keval.js"
-import Context 
+import Context
   from "./12-react-context.js"
+import { Term }
+  from "./30-term.js"
 
 class Debugger extends Component {
   constructor(props) {

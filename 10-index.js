@@ -2,13 +2,12 @@ import {
   packages,
   isSymbol,
   makePackage,
-  example,
-  read,
-  stream
 } from "./01-lisp.js"
 
 import { keval } 
   from "./02-keval.js"
+import { readFromString }
+  from "./03-read.js"
 import { html } 
   from "./11-html.js"
 import Context 
@@ -29,7 +28,7 @@ function bar () {
     print: x => output.push(h("div", {}, ["output: ", x]))
   }
 
-  let test = read(ctx, stream(`
+  let test = readFromString(ctx,`
     (do
       (print
         (prompt 0
@@ -42,7 +41,7 @@ function bar () {
                 (resume k "restart 1")
                 (resume k "restart 2")))))
       (print "ok"))
-  `))
+  `)
 
   let expr = html`
     <${Context.Provider} value=${ctx}>
@@ -92,7 +91,7 @@ function baz() {
     used: [packages.user, packages.lisp],
   }
 
-  let test = read(ctx, stream(`
+  let test = readFromString(ctx, `
     (do
       (print
         (prompt 0
@@ -106,9 +105,9 @@ function baz() {
                 (resume k "restart 1")
                 (resume k "restart 2")))))
       (print "ok"))
-  `))
+  `)
 
-  let test2 = read(ctx, stream(`
+  let test2 = readFromString(ctx, `
     (do
       (defgeneric foo (x))
       (defmethod foo ((x number))
@@ -116,7 +115,7 @@ function baz() {
           (print "number")
           (print 1)))
       (foo 1))
-  `))
+  `)
 
   let s = {
     ctx,

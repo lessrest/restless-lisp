@@ -1,11 +1,34 @@
-* 01-lisp.js
-* 02-keval.js
-* 03-test.js
-* 10-index.js
-* 11-html.js
-* 12-react-context.js
-* 20-electron.js
-* 21-electron-preload.js
-* 30-debugger.js
-* 31-repl.js
-* 32-term.js
+* I/O
+
+  If the program wants to fetch a URL, it should end up running
+
+    (CONTROL LISP:*IO-PROMPT* `(FETCH ,URL))
+
+  So the I/O prompt receives a request and a continuation.
+
+  The I/O prompt handler, a native JavaScript builtin, starts an async
+  request with a callback that in turn notifies the "kernel," which is
+  the most low-level prompt.
+
+    (CONTROL LISP:*KERNEL-PROMPT* `(SCHEDULE ,K ,RESULT))
+
+  The kernel prompt will add the continuation to a queue, and start
+  evaluating it.
+
+(defun sleep (duration transient)
+  (match (control *thread* `(:sleep ,duration))
+    (:ok nil)
+    (`(:resumed ,time-left)
+     (if transient
+        (control *thread* :stop)
+        (sleep time-left))))
+
+* Prompts
+
+   - Kernel
+    - Kernel I/O
+      - Thread
+       - Thread I/O
+      - Thread
+       - Thread I/O
+        - REPL
