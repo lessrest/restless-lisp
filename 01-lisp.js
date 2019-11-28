@@ -86,7 +86,7 @@ function builtin(string, params, f) {
     type: FUNCTION,
     name: lisp.symbols[string],
     params,
-    js: f,
+    // js: f,
   }
 }
 
