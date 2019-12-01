@@ -1,11 +1,11 @@
-import { packages, NIL } 
+import { packages, NIL }
   from "./01-lisp.js"
-import { keval } 
+import { keval }
   from "./02-keval.js"
 import { readFromString }
   from "./03-read.js"
 
-import { deepEqual } 
+import { deepEqual }
   from "assert"
 
 let { user, lisp } = packages
@@ -110,14 +110,14 @@ export let tests = [
 
 export let example = readFromString(defaultCtx, `
   (do
-    (define-function repeat (n f)
+    (defun repeat (n f)
       (if n
         (do
           (apply f ())
           (repeat (- n 1) f))
         nil))
     (let ((counter 0))
-      (define-function tick ()
+      (defun tick ()
         (do
           (set! counter (+ counter 1))
           counter)))
