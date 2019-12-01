@@ -151,9 +151,20 @@ lisp-buffer {
 }
 
 lisp-cursor {
-  background-color: #422;
-  border: 1px solid ivory;
-  border-radius: 2px;
-  width: 5px;
-  margin: 0 .5em;
+  background-color: ivory;
+  /* box-shadow: 0px 0px 10px 10px rgba(100, 102, 136, 0.5); */
+  border-radius: 5px;
+  width: 10px;
+  height: 10px;
+  margin: .25em;
+}
+
+.selected {
+  border: 2px solid ivory;
+  /* background-color: #448; */
+  padding-left: .5em;
+  padding-right: .5em;
+  font-size: 28px;
+  line-height: 32px;
+  /* box-shadow: 0px 0px 10px 10px rgba(100, 102, 136, 0.5); */
 }

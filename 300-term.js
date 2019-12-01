@@ -31,7 +31,7 @@ function paint(node, ...children) {
 }
 
 export function draw(ctx, term) {
-  function expandable(node, x) {
+  function expandable(node, simple) {
     return elli(
       node,
       async self => {
@@ -45,7 +45,7 @@ export function draw(ctx, term) {
         }
 
         for (;;) {
-          paint(self, x(expanded))
+          paint(self, expanded ? renderFields() : simple)
           await click.next()
           expanded = !expanded
         }
@@ -95,9 +95,11 @@ export function draw(ctx, term) {
     else
       name = `${term.package.name}:${term.name}`
 
+
     return expandable(
-      h("lisp-symbol"),
-      expanded => expanded ? renderFields() : h("span", {}, name)
+      h("lisp-symbol",
+        term.special ? { "class": "special" } : {}),
+      h("span", {}, name)
     )
 
   } else if (Array.isArray(term)) {
@@ -118,13 +120,13 @@ export function draw(ctx, term) {
   } else if (typeof term == "object" && term.type) {
     return expandable(
       h("lisp-object"),
-      expanded => expanded ? renderFields() : h("i", {}, "object")
+      h("i", {}, "object")
     )
 
   } else if (typeof term == "object") {
     return expandable(
       h("lisp-object"),
-      expanded => expanded ? renderFields() : h("i", {}, "object")
+      h("i", {}, "object")
     )
 
   } else if (term === undefined) {

@@ -32,3 +32,52 @@
       - Thread
        - Thread I/O
         - REPL
+* Cursor
+  We're drawing terms as ellies with subterms as subellies, in order
+  to support stateful term interaction like toggling expansion, etc.
+
+  That's fine, all it means is that each elli has some onclick handler
+  pointing to a channel which points to a promise.
+
+  Maybe what I really should think about is /term editing/.
+
+* Term editor
+
+  A term editor is not a term.  A term editor "edits" a term; it
+  manipulates a structure that represents a term.
+
+  Could I make a term editor in Lisp?
+
+  A term editor is naturally recursive.
+
+  A term editor could maintain a hierarchy of nodes which corresponds
+  to the term structure.
+
+* Concurrency
+
+  This would be good to actually clarify.
+
+  #+BEGIN_SRC
+  (concurrently
+    (lambda () (print (fetch "//google.com")))
+    (lambda () (do (print "ok") (sleep 1) (print "hey"))))
+  #+END_SRC
+
+  This would expand to
+
+  #+BEGIN_SRC
+  (prompt :yield
+    (lambda ()
+      (print (control :yield (%fetch "//google.com"))))
+    (lambda (v k)
+      (control :schedule (list v k))))
+  (prompt :yield
+    (lambda ()
+      (do (print "ok") 
+           (control :yield (%sleep 1))
+           (print "hey")))
+    (lambda (v k)
+      (control :schedule (list v k))))
+  #+END_SRC
+
+  
