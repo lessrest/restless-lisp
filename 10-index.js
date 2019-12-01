@@ -5,7 +5,7 @@ import {
   ctx,
 } from "./01-lisp.js"
 
-import { keval }
+import { keval, execute }
   from "./02-keval.js"
 import { readFromString }
   from "./03-read.js"
@@ -15,6 +15,41 @@ import { h, html }
 import { draw } from "./300-term.js"
 
 window.packages = packages
+
+ctx.print = x => console.log(x)
+
+async function load(url) {
+  let result = await fetch(url)
+  let code = await result.text()
+  let term = readFromString(ctx, code)
+
+  execute({ ctx, term, limit: 1000 })
+}
+
+async function loadAll() {
+  for (let e of document.querySelectorAll("script[type=lisp]")) {
+    await load(e.getAttribute("HREF"))
+  }
+}
+
+loadAll()
+
+let observer = new MutationObserver(
+  function (mutations) {
+    for (let m of mutations) {
+      for (let e of m.addedNodes) {
+        if (e.tagName === "SCRIPT" &&
+            e.getAttribute("TYPE") === "lisp") {
+          console.log("yay", e)
+          load(e.getAttribute("HREF"))
+        }
+      }
+    }
+  }
+)
+
+observer.observe(document, {
+  childList: true, subtree: true })
 
 function foo() {
   let test2 = readFromString(ctx, `
