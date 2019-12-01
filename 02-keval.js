@@ -24,25 +24,23 @@ import {
 // ("plans") that specify how to proceed with the result of
 // a computation.
 //
-export function keval({ ctx, term, value, plan, scope, scopes }) {
+export function keval({ ctx, term, value, plan, scopes }) {
 
   if (value !== undefined) {
     // If we have a value, then the term has been fully evaluated.
     // We should carry out the current plan, and move on.
 
     if (plan === null)
-      return { ctx, scope, scopes, value, plan: null }
+      return { ctx, scopes, value, plan: null }
 
     if (plan.type == "do") {
       if (plan.terms.length != 0) {
         return {
           ctx,
-          scope: plan.scope,
           scopes: plan.scopes,
           term: plan.terms[0],
           plan: {
             type: "do",
-            scope: plan.scope,
             scopes: plan.scopes,
             terms: plan.terms.slice(1),
             plan: plan.plan,
@@ -51,7 +49,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       } else {
         return {
           ctx,
-          scope: plan.scope,
           scopes: plan.scopes,
           plan: plan.plan,
           value,
@@ -61,7 +58,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     } else if (plan.type == "done") {
       return {
         ctx,
-        scope: plan.scope,
         scopes: plan.scopes,
         value,
         plan: null,
@@ -71,7 +67,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       ctx.print(value)
       return {
         ctx,
-        scope: plan.scope,
         scopes: plan.scopes,
         value: NIL,
         plan: plan.plan,
@@ -80,12 +75,10 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     } else if (plan.type == "prompt-1") {
       return {
         ctx,
-        scope: plan.scope,
         scopes: plan.scopes,
         term: plan.term,
         plan: {
           type: "prompt-2",
-          scope: plan.scope,
           scopes: plan.scopes,
           tag: plan.tag,
           main: value,
@@ -96,12 +89,10 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     } else if (plan.type == "prompt-2") {
       return {
         ctx,
-        scope: new Map,
-        scopes: plan.main.scopes,
+        scopes: [new Map, ...plan.main.scopes],
         term: plan.main.body,
         plan: {
           type: "prompt-marker",
-          scope: plan.scope,
           scopes: plan.scopes,
           tag: plan.tag,
           plan: plan.plan,
@@ -161,26 +152,26 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       return {
         ctx,
         term: prompt.handler.body,
-        scopes: prompt.handler.scopes,
-        scope: new Map([
-          [prompt.handler.params[0], value],
-          [prompt.handler.params[1], {
-            type: "continuation",
-            plan: capture,
-          }]
-        ]),
+        scopes: [
+          new Map([
+            [prompt.handler.params[0], value],
+            [prompt.handler.params[1], {
+              type: "continuation",
+              plan: capture,
+            }]
+          ]),
+          ...prompt.handler.scopes,
+        ],
         plan: prompt.plan,
       }
 
     } else if (plan.type == "resume-1") {
       return {
         ctx,
-        scope: plan.scope,
         scopes: plan.scopes,
         term: plan.term,
         plan: {
           type: "resume-2",
-          scope: plan.scope,
           scopes: plan.scopes,
           continuation: value,
           plan: plan.plan,
@@ -198,7 +189,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
 
       return {
         ctx,
-        scope: plan.continuation.scope,
         scopes: plan.continuation.scopes,
         value,
         plan: rebase(plan.continuation.plan, plan.plan),
@@ -207,7 +197,6 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
     } else if (plan.type === "prompt-marker") {
       return {
         ctx,
-        scope: plan.scope,
         scopes: plan.scopes,
         value,
         plan: plan.plan,
@@ -222,7 +211,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
         })
       } else {
         return {
-          ctx, scope, scopes,
+          ctx, scopes,
           term: plan.terms[0],
           plan: {
             ...plan,
@@ -240,7 +229,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
   // We don't have a value, so we inspect the term and choose a plan.
 
   function kontinue(diff) {
-    return { ctx, scope, scopes, term, plan, ...diff }
+    return { ctx, scopes, term, plan, ...diff }
   }
 
   function bad(x) {
@@ -260,8 +249,10 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
       for (let m of f.methods) {
         if (m.params.every(([name, type], i) => typeOf(args[i]) === type))
           return kontinue({
-            scope: new Map(f.params.map((x, i) => [x, args[i]])),
-            scopes: m.scopes,
+            scopes: [
+              new Map(f.params.map((x, i) => [x, args[i]])),
+              m.scopes,
+            ],
             term: m.body,
             plan
           })
@@ -279,16 +270,11 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
 
   // Variable reference?
   else if (isSymbol(term)) {
-    let x = scope.get(term)
-    if (x !== undefined) {
-      return kontinue({ value: x })
-    } else {
-      for (let s of scopes) {
-        if ((x = s.get(term)) !== undefined)
-          return kontinue({ value: x })
-      }
-    }
-    console.error({ term, scope, scopes })
+    let x
+    for (let s of scopes)
+      if ((x = s.get(term)) !== undefined)
+        return kontinue({ value: x })
+    console.error({ term, scopes })
     throw new Error("unbound-variable")
   }
 
@@ -308,7 +294,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           term: term[1],
           plan: {
             type: "do",
-            scope, scopes,
+            scopes,
             terms: term.slice(2),
             plan,
           }
@@ -320,7 +306,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           term: term[1],
           plan: {
             type: "print",
-            scope, scopes,
+            scopes,
             plan
           }
         })
@@ -332,7 +318,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
             type: FUNCTION,
             params: term[1],
             body: term[2],
-            scopes: [scope, ...scopes],
+            scopes,
           }
         })
       }
@@ -342,7 +328,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           term: term[2],
           plan: {
             type: "prompt-1",
-            scope, scopes,
+            scopes,
             tag: term[1],
             term: term[3],
             plan
@@ -355,7 +341,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           term: term[2],
           plan: {
             type: "control",
-            scope, scopes,
+            scopes,
             tag: term[1],
             plan
           }
@@ -367,7 +353,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           term: term[1],
           plan: {
             type: "resume-1",
-            scope, scopes,
+            scopes,
             term: term[2],
             plan
           }
@@ -405,7 +391,7 @@ export function keval({ ctx, term, value, plan, scope, scopes }) {
           name: term[1],
           params: term[2],
           body: term[3],
-          scope, scopes
+          scopes
         })
 
         return kontinue({
@@ -455,7 +441,6 @@ export function execute({
     ctx,
     term,
     plan: { type: "done" },
-    scope: new Map,
     scopes: [],
   }
 
