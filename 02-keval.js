@@ -2,6 +2,7 @@ import {
   CONTROL,
   DEFGENERIC,
   DEFMETHOD,
+  DEFUN,
   DO,
   FUNCTION,
   GENERIC_FUNCTION,
@@ -258,7 +259,20 @@ export function keval({ ctx, term, value, plan, scopes }) {
           })
       }
       bad(`no-matching-method`)
-    } else {
+    }
+
+    else if (f.type === FUNCTION) {
+      return kontinue({
+        scopes: [
+          new Map(f.params.map((x, i) => [x, args[i]])),
+          f.scopes,
+        ],
+        term: f.body,
+        plan,
+      })
+    }
+
+    else {
       bad(`weird-function-type: ${show(f.type)}`)
     }
   }
@@ -393,6 +407,25 @@ export function keval({ ctx, term, value, plan, scopes }) {
           body: term[3],
           scopes
         })
+
+        return kontinue({
+          value: term[1],
+          plan
+        })
+      }
+
+      else if (term[0] === DEFUN) {
+        syntax(term.length === 4)
+        syntax(isSymbol(term[1]))
+        syntax(Array.isArray(term[2]))
+
+        term[1]["function"] = {
+          type: FUNCTION,
+          name: term[1],
+          params: term[2],
+          body: term[3],
+          scopes
+        }
 
         return kontinue({
           value: term[1],

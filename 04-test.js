@@ -52,6 +52,8 @@ function testProgram({
   process.stdout.write(`ok\n`)
 }
 
+console.log("Testing...\n")
+
 export let tests = [
   {
     name: "prompt with multiple resumptions",
@@ -93,7 +95,7 @@ export let tests = [
         (defmethod foo ((x number))
           (do
             (print "number")
-            (print 1)))
+            (print x)))
         (defmethod foo ((x string))
           (do
             (print "string")
@@ -106,6 +108,28 @@ export let tests = [
       result: NIL,
     },
   },
+
+  {
+    name: "defun",
+    code: `
+      (do
+        (defun foo (x)
+          (do
+            (print "number")
+            (print x)))
+        (defun bar (x)
+          (do
+            (print "string")
+            (print x)))
+        (foo 1)
+        (bar "hey"))
+    `,
+    expect: {
+      output: ["number", 1, "string", "hey"],
+      result: NIL,
+    },
+  },
+
 ]
 
 export let example = readFromString(defaultCtx, `
