@@ -28,7 +28,7 @@ async function load(url) {
 
 async function loadAll() {
   for (let e of document.querySelectorAll("script[type=lisp]")) {
-    await load(e.getAttribute("HREF"))
+    await load(e.getAttribute("SRC"))
   }
 }
 
@@ -36,15 +36,11 @@ loadAll()
 
 let observer = new MutationObserver(
   function (mutations) {
-    for (let m of mutations) {
-      for (let e of m.addedNodes) {
+    for (let m of mutations)
+      for (let e of m.addedNodes)
         if (e.tagName === "SCRIPT" &&
-            e.getAttribute("TYPE") === "lisp") {
-          console.log("yay", e)
-          load(e.getAttribute("HREF"))
-        }
-      }
-    }
+            e.getAttribute("TYPE") === "lisp")
+          load(e.getAttribute("SRC"))
   }
 )
 
