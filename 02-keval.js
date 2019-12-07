@@ -26,11 +26,13 @@ import {
 // a computation.
 //
 export function keval({ ctx, term, value, plan, scopes }) {
+  if (value === undefined) {
+    return analyzeTerm()
+  } else {
+    return analyzePlan()
+  }
 
-  if (value !== undefined) {
-    // If we have a value, then the term has been fully evaluated.
-    // We should carry out the current plan, and move on.
-
+  function analyzePlan() {
     if (plan === null)
       return { ctx, scopes, value, plan: null }
 
@@ -227,22 +229,8 @@ export function keval({ ctx, term, value, plan, scopes }) {
     throw new Error("can't continue")
   }
 
-  // We don't have a value, so we inspect the term and choose a plan.
-
   function kontinue(diff) {
     return { ctx, scopes, term, plan, ...diff }
-  }
-
-  function bad(x) {
-    debugger
-    throw new Error(`${show(intern(lisp, x))} (${show(term)})`)
-  }
-
-  function syntax(p, x = term) {
-    if (!p) {
-      debugger
-      throw new Error(`syntax-error ${text} (${show(x)})`)
-    }
   }
 
   function funcall({ f, args, plan }) {
@@ -277,192 +265,207 @@ export function keval({ ctx, term, value, plan, scopes }) {
     }
   }
 
-  // Self-evaluating literal?
-  if (["number", "string"].includes(typeof term)) {
-    return kontinue({ value: term })
-  }
 
-  // Variable reference?
-  else if (isSymbol(term)) {
-    let x
-    for (let s of scopes)
-      if ((x = s.get(term)) !== undefined)
-        return kontinue({ value: x })
-    console.error({ term, scopes })
-    throw new Error("unbound-variable")
-  }
+  function analyzeTerm() {
+    function bad(x) {
+      debugger
+      throw new Error(`${show(intern(lisp, x))} (${show(term)})`)
+    }
 
-  // Special form or function call?
-  else if (Array.isArray(term)) {
-
-    if (isSymbol(term[0])) {
-      if (term[0] === QUOTE) {
-        return kontinue({
-          value: term[1],
-          plan
-        })
+    function syntax(p, x = term) {
+      if (!p) {
+        debugger
+        throw new Error(`syntax-error ${text} (${show(x)})`)
       }
+    }
 
-      else if (term[0] === DO) {
-        return kontinue({
-          term: term[1],
-          plan: {
-            type: "do",
-            scopes,
-            terms: term.slice(2),
-            plan,
-          }
-        })
-      }
+    // Self-evaluating literal?
+    if (["number", "string"].includes(typeof term)) {
+      return kontinue({ value: term })
+    }
 
-      else if (term[0] === PRINT) {
-        return kontinue({
-          term: term[1],
-          plan: {
-            type: "print",
-            scopes,
+    // Variable reference?
+    else if (isSymbol(term)) {
+      let x
+      for (let s of scopes)
+        if ((x = s.get(term)) !== undefined)
+          return kontinue({ value: x })
+      console.error({ term, scopes })
+      throw new Error("unbound-variable")
+    }
+
+    // Special form or function call?
+    else if (Array.isArray(term)) {
+
+      if (isSymbol(term[0])) {
+        if (term[0] === QUOTE) {
+          return kontinue({
+            value: term[1],
             plan
-          }
-        })
-      }
-
-      else if (term[0] === LAMBDA) {
-        return kontinue({
-          value: {
-            type: FUNCTION,
-            params: term[1],
-            body: term[2],
-            scopes,
-          }
-        })
-      }
-
-      else if (term[0] === PROMPT) {
-        return kontinue({
-          term: term[2],
-          plan: {
-            type: "prompt-1",
-            scopes,
-            tag: term[1],
-            term: term[3],
-            plan
-          }
-        })
-      }
-
-      else if (term[0] === CONTROL) {
-        return kontinue({
-          term: term[2],
-          plan: {
-            type: "control",
-            scopes,
-            tag: term[1],
-            plan
-          }
-        })
-      }
-
-      else if (term[0] === RESUME) {
-        return kontinue({
-          term: term[1],
-          plan: {
-            type: "resume-1",
-            scopes,
-            term: term[2],
-            plan
-          }
-        })
-      }
-
-      else if (term[0] === DEFGENERIC) {
-        syntax(term.length === 3)
-        syntax(isSymbol(term[1]))
-        syntax(Array.isArray(term[2]))
-        syntax(term[2].every(x => isSymbol(x)))
-
-        term[1]["function"] = {
-          type: GENERIC_FUNCTION,
-          name: term[1],
-          params: term[2],
-          methods: [],
-        }
-
-        return kontinue({
-          value: term[1],
-          plan
-        })
-      }
-
-      else if (term[0] === DEFMETHOD) {
-        syntax(term.length === 4)
-        syntax(isSymbol(term[1]))
-        syntax(Array.isArray(term[2]))
-        if (term[1]["function"].type !== GENERIC_FUNCTION)
-          bad("not-a-generic-function")
-
-        term[1]["function"].methods.push({
-          type: "method",
-          name: term[1],
-          params: term[2],
-          body: term[3],
-          scopes
-        })
-
-        return kontinue({
-          value: term[1],
-          plan
-        })
-      }
-
-      else if (term[0] === DEFUN) {
-        syntax(term.length === 4)
-        syntax(isSymbol(term[1]))
-        syntax(Array.isArray(term[2]))
-
-        term[1]["function"] = {
-          type: FUNCTION,
-          name: term[1],
-          params: term[2],
-          body: term[3],
-          scopes
-        }
-
-        return kontinue({
-          value: term[1],
-          plan
-        })
-      }
-
-      else if (isSymbol(term[0])) {
-        term[0]["function"] || bad("not-a-function")
-
-        if (term.length == 1) {
-          return funcall({
-            f: term[0]["function"],
-            args: [],
-            plan,
           })
+        }
 
-        } else {
+        else if (term[0] === DO) {
           return kontinue({
             term: term[1],
             plan: {
-              type: "evaluate-funcall-arguments",
-              "function": term[0]["function"],
+              type: "do",
+              scopes,
               terms: term.slice(2),
-              args: [],
+              plan,
+            }
+          })
+        }
+
+        else if (term[0] === PRINT) {
+          return kontinue({
+            term: term[1],
+            plan: {
+              type: "print",
+              scopes,
               plan
             }
           })
         }
+
+        else if (term[0] === LAMBDA) {
+          return kontinue({
+            value: {
+              type: FUNCTION,
+              params: term[1],
+              body: term[2],
+              scopes,
+            }
+          })
+        }
+
+        else if (term[0] === PROMPT) {
+          return kontinue({
+            term: term[2],
+            plan: {
+              type: "prompt-1",
+              scopes,
+              tag: term[1],
+              term: term[3],
+              plan
+            }
+          })
+        }
+
+        else if (term[0] === CONTROL) {
+          return kontinue({
+            term: term[2],
+            plan: {
+              type: "control",
+              scopes,
+              tag: term[1],
+              plan
+            }
+          })
+        }
+
+        else if (term[0] === RESUME) {
+          return kontinue({
+            term: term[1],
+            plan: {
+              type: "resume-1",
+              scopes,
+              term: term[2],
+              plan
+            }
+          })
+        }
+
+        else if (term[0] === DEFGENERIC) {
+          syntax(term.length === 3)
+          syntax(isSymbol(term[1]))
+          syntax(Array.isArray(term[2]))
+          syntax(term[2].every(x => isSymbol(x)))
+
+          term[1]["function"] = {
+            type: GENERIC_FUNCTION,
+            name: term[1],
+            params: term[2],
+            methods: [],
+          }
+
+          return kontinue({
+            value: term[1],
+            plan
+          })
+        }
+
+        else if (term[0] === DEFMETHOD) {
+          syntax(term.length === 4)
+          syntax(isSymbol(term[1]))
+          syntax(Array.isArray(term[2]))
+          if (term[1]["function"].type !== GENERIC_FUNCTION)
+            bad("not-a-generic-function")
+
+          term[1]["function"].methods.push({
+            type: "method",
+            name: term[1],
+            params: term[2],
+            body: term[3],
+            scopes
+          })
+
+          return kontinue({
+            value: term[1],
+            plan
+          })
+        }
+
+        else if (term[0] === DEFUN) {
+          syntax(term.length === 4)
+          syntax(isSymbol(term[1]))
+          syntax(Array.isArray(term[2]))
+
+          term[1]["function"] = {
+            type: FUNCTION,
+            name: term[1],
+            params: term[2],
+            body: term[3],
+            scopes
+          }
+
+          return kontinue({
+            value: term[1],
+            plan
+          })
+        }
+
+        else if (isSymbol(term[0])) {
+          term[0]["function"] || bad("not-a-function")
+
+          if (term.length == 1) {
+            return funcall({
+              f: term[0]["function"],
+              args: [],
+              plan,
+            })
+
+          } else {
+            return kontinue({
+              term: term[1],
+              plan: {
+                type: "evaluate-funcall-arguments",
+                "function": term[0]["function"],
+                terms: term.slice(2),
+                args: [],
+                plan
+              }
+            })
+          }
+        }
       }
+
+      bad(`cannot apply non-symbol`)
     }
 
-    bad(`cannot apply non-symbol`)
+    console.error("unknown term", term)
+    throw new Error("unknown term")
   }
-
-  console.error("unknown term", term)
-  throw new Error("unknown term")
 }
 
 export function execute({
