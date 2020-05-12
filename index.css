@@ -1,5 +1,5 @@
 html, input {
-  font: 22px/30px "iosevka aile";
+  font: 16px/22px "iosevka aile";
   background: black;
   color: ivory;
 }
@@ -111,7 +111,7 @@ lisp-list:not(:last-child) { margin-right: .5rem; }
 
 [data-point="yes"] { background: rgba(0, 255, 0, 0.1); }
 
-body { height: 100vh; }
+/* body { height: 100vh; } */
 
 lisp-repl {
   height: 100%;

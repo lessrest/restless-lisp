@@ -1,11 +1,16 @@
 import { keval }
-  from "./01-keval.js"
+  from "./02-keval.js"
+import { html }
+  from "./11-html.js"
 import Context
   from "./12-react-context.js"
 import { Term }
   from "./30-term.js"
 
-class Debugger extends Component {
+import { Component, h }
+  from "./vendor/preact.js"
+
+export class Debugger extends Component {
   constructor(props) {
     super(props)
     this.state = {

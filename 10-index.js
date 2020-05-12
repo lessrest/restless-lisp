@@ -15,6 +15,8 @@ import Context
   from "./12-react-context.js"
 import { Repl }
   from "./31-repl.js"
+import { Debugger }
+  from "./32-debugger.js"
 import { Buffer }
   from "./40-buffer.js"
 
@@ -121,7 +123,7 @@ function baz() {
 
   let s = {
     ctx,
-    term: test2,
+    term: test,
     plan: { type: "done" },
     scope: new Map,
     scopes: [],
@@ -130,7 +132,9 @@ function baz() {
   render(h(Debugger, { machine: s }), document.body)
 }
 
-onload = () => {
+onload = baz
+
+let repl_onload = () => {
   render(h(Repl, {
     history: [
       {
