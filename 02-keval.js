@@ -34,7 +34,7 @@ export function keval({ ctx, term, value, plan, scopes }) {
 
   function analyzePlan() {
     if (plan === null)
-      return { ctx, scopes, value, plan: null }
+      return { ctx, scopes, value, plan }
 
     if (plan.type == "do") {
       if (plan.terms.length != 0) {
